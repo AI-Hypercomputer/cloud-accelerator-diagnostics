@@ -45,8 +45,7 @@ print("Vertex AI Tensorboard created: ", instance_id)
 ```
 
 ### Create Vertex AI Experiment
-To learn about Vertex AI Experiments, visit this [page]
-(https://cloud.google.com/vertex-ai/docs/experiments/intro-vertex-ai-experiments).
+To learn about Vertex AI Experiments, visit this [page](https://cloud.google.com/vertex-ai/docs/experiments/intro-vertex-ai-experiments).
 
 The following script will create a Vertex AI Experiment named `test-experiment` in your Google Cloud Project `test-project`. Here's how it handles attaching a Tensorboard instance:
 

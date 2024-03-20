@@ -28,8 +28,12 @@ This allow to:
 To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 * Create a new `# [2.0.0] - YYYY-MM-DD` header and add the changes to be released.
-* At the end of the file:
-  * Define the new link url:
-  `[2.0.0]: https://github.com/google/cloud-accelerator-diagnostics/compare/v1.0.0...v2.0.0`
 
 -->
+
+# [0.1.0] - 2024-03-20
+* Initial release of `cloud-accelerator-diagnostics` PyPI package
+* Features:
+  * Create a Vertex AI Tensorboard instance in Google Cloud Project
+  * Create a Vertex AI Experiment in Google Cloud Project
+  * Automatically upload logs to Vertex AI Tensorboard Experiment
