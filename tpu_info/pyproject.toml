@@ -1,0 +1,60 @@
+# Copyright 2023 Google LLC
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      https://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[build-system]
+requires = ["hatchling", "hatch-build-scripts", "grpcio-tools"]
+build-backend = "hatchling.build"
+
+[project]
+version = "0.0.1"
+name = "tpu-info"
+dependencies = [
+  "grpcio",
+  "protobuf",
+  "rich",
+]
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+test = [
+  "absl-py",
+]
+
+[project.scripts]
+tpu-info = "tpu_info.cli:print_chip_info"
+
+[tool.hatch.build]
+exclude = [
+  "*_test.py",
+  "*.proto",
+]
+
+[tool.hatch.build.targets.wheel]
+# HACK: Avoid copying files generated below
+# See https://github.com/rmorshea/hatch-build-scripts/discussions/4
+artifacts = [
+  "tpu_metric_service_pb2.py",
+  "tpu_metric_service_pb2.pyi",
+  "tpu_metric_service_pb2_grpc.py",
+]
+
+[[tool.hatch.build.hooks.build-scripts.scripts]]
+commands = [
+  # Look up proto from current directory to ensure imports use `tpu_info`
+  # package (e.g. `from tpu_info.proto import ...`)
+  # See protoc bug: https://github.com/protocolbuffers/protobuf/issues/1491
+  "python -m grpc_tools.protoc -I. tpu_info/proto/tpu_metric_service.proto --python_out=. --pyi_out=. --grpc_python_out=.",
+]
+artifacts = []
+clean_artifacts = false
