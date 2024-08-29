@@ -97,7 +97,6 @@ class CliTest(absltest.TestCase):
 
       output = f.getvalue()
       self.assertIn("Libtpu metrics unavailable.", output)
-      self.assertIn("TPU_RUNTIME_METRICS_PORTS", output)
 
 
 if __name__ == "__main__":

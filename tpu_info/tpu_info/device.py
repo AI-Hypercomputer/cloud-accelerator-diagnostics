@@ -34,13 +34,13 @@ class TpuChip(enum.Enum):
 
     name: str
     hbm_gib: int
-    accelerators_per_chip: Literal[1, 2]
+    devices_per_chip: Literal[1, 2]
 
-  V2 = Info("v2", hbm_gib=8, accelerators_per_chip=2)
-  V3 = Info("v3", hbm_gib=16, accelerators_per_chip=2)
-  V4 = Info("v4", hbm_gib=32, accelerators_per_chip=1)
-  V5E = Info("v5e", hbm_gib=16, accelerators_per_chip=1)
-  V5P = Info("v5p", hbm_gib=95, accelerators_per_chip=1)
+  V2 = Info("v2", hbm_gib=8, devices_per_chip=2)
+  V3 = Info("v3", hbm_gib=16, devices_per_chip=2)
+  V4 = Info("v4", hbm_gib=32, devices_per_chip=1)
+  V5E = Info("v5e", hbm_gib=16, devices_per_chip=1)
+  V5P = Info("v5p", hbm_gib=95, devices_per_chip=1)
 
   @classmethod
   def from_pci_device_id(

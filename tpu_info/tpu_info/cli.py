@@ -39,9 +39,9 @@ def print_chip_info():
   console = rich.console.Console()
 
   table = rich.table.Table(title="TPU Chips", title_justify="left")
-  table.add_column("Device")
+  table.add_column("Chip")
   table.add_column("Type")
-  table.add_column("Cores")
+  table.add_column("Devices")
   # TODO(wcromar): this may not match the libtpu runtime metrics
   # table.add_column("HBM (per core)")
   table.add_column("PID")
@@ -55,27 +55,26 @@ def print_chip_info():
     table.add_row(
         chip,
         str(chip_type),
-        str(chip_type.value.accelerators_per_chip),
+        str(chip_type.value.devices_per_chip),
         str(owner),
     )
 
   console.print(table)
 
-  table = rich.table.Table(title="TPU Chip Utilization", title_justify="left")
-  table.add_column("Core ID")
+  table = rich.table.Table(title="TPU Utilization", title_justify="left")
+  table.add_column("Device")
   table.add_column("Memory usage")
   table.add_column("Duty cycle", justify="right")
 
   try:
     device_usage = metrics.get_chip_usage(chip_type)
   except grpc.RpcError as e:
-    # TODO(wcromar): libtpu should start this server automatically
     if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
       print(
-          "Libtpu metrics unavailable. Did you start a workload with "
-          "`TPU_RUNTIME_METRICS_PORTS=8431,8432,8433,8434`?"
+          "Libtpu metrics unavailable. Is there a framework using the TPU? See"
+          " https://github.com/google/cloud-accelerator-diagnostics/tree/main/tpu_info"
+          " for more information"
       )
-      # TODO(wcromar): Point to public documentation once released
       return
     else:
       raise e
@@ -87,7 +86,9 @@ def print_chip_info():
         str(chip.device_id),
         f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
         f" {_bytes_to_gib(chip.total_memory):.2f} GiB",
-        f"{chip.duty_cycle_pct:.2f}%",
+        f"{chip.duty_cycle_pct:.2f}%"
+        if chip_type.value.devices_per_chip == 1 or chip.device_id % 2 == 0
+        else "",
     )
 
   console.print(table)

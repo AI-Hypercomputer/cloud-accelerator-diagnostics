@@ -76,7 +76,7 @@ def get_chip_usage(
   # Repeat if necessary so these responses are the same length.
   duty_cycle_pct_per_core = list(
       itertools.chain.from_iterable(
-          itertools.repeat(d, chip_type.value.accelerators_per_chip)
+          itertools.repeat(d, chip_type.value.devices_per_chip)
           for d in duty_cycle_pct
       )
   )

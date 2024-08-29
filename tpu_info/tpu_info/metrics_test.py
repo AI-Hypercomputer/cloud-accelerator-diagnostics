@@ -145,7 +145,7 @@ class TestMetrics(parameterized.TestCase):
                   responses[metrics.MetricName.MEMORY_USAGE],
                   responses[metrics.MetricName.TOTAL_MEMORY],
                   itertools.chain.from_iterable(
-                      itertools.repeat(d, chip_type.value.accelerators_per_chip)
+                      itertools.repeat(d, chip_type.value.devices_per_chip)
                       for d in responses[metrics.MetricName.DUTY_CYCLE_PCT]
                   ),
               )
