@@ -24,29 +24,28 @@ runtime metrics enabled. See the [Usage](#usage) section for more information.
 
 ## Installing
 
-To build the tool, use `pip` :
+Install the latest release using `pip`:
+
+```
+pip install tpu-info
+```
+
+Alternatively, install `tpu-info` from source:
 
 ```bash
-# Install pip if you don't already have it
-sudo apt install python3-pip python-is-python3
-# Install directly on current machine
-pip install .
-# Build the wheel to install on another machine
-pip wheel --no-deps .
+pip install git+https://github.com/google/cloud-accelerator-diagnostics/#subdirectory=tpu_info
 ```
 
 ## Usage
 
 To view current TPU utilization data, `tpu-info` requires a running TPU workload
-with supported ML framework[^1] such as JAX or PyTorch/XLA. To enable the
-metrics server within `libtpu`, set the `TPU_RUNTIME_METRICS_PORTS` environment
-variable accordingly:
+with supported ML framework[^1] such as JAX or PyTorch/XLA. For example:
 
-```bash
-# Single process (JAX and PyTorch/XLA SPMD)
-TPU_RUNTIME_METRICS_PORTS=8431 python script.py
-# PyTorch/XLA multiprocess
-TPU_RUNTIME_METRICS_PORTS=8431,8432,8433,8434 python script.py
+```
+>>> import torch
+>>> import torch_xla
+# Create a tensor on the TPU
+>>> t = torch.randn((300, 300), device=torch_xla.device())
 ```
 
 Then, on the same machine, run the `tpu-info` command line tool:
@@ -54,24 +53,24 @@ Then, on the same machine, run the `tpu-info` command line tool:
 ```bash
 $ tpu-info
 TPU Chips
-┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━┓
-┃ Device      ┃ Type        ┃ Cores ┃ PID     ┃
-┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━┩
-│ /dev/accel0 │ TPU v4 chip │ 1     │ 3786361 │
-│ /dev/accel1 │ TPU v4 chip │ 1     │ 3786361 │
-│ /dev/accel2 │ TPU v4 chip │ 1     │ 3786361 │
-│ /dev/accel3 │ TPU v4 chip │ 1     │ 3786361 │
-└─────────────┴─────────────┴───────┴─────────┘
-Connected to libtpu at `localhost:8431`...
-TPU Chip Utilization
-┏━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
-┃ Core ID ┃ Memory usage         ┃ Duty cycle ┃
-┡━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
-│ 0       │ 0.00 GiB / 30.75 GiB │      0.00% │
-│ 1       │ 0.00 GiB / 30.75 GiB │      0.00% │
-│ 2       │ 0.00 GiB / 30.75 GiB │      0.00% │
-│ 3       │ 0.00 GiB / 30.75 GiB │      0.00% │
-└─────────┴──────────────────────┴────────────┘
+┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
+┃ Chip        ┃ Type        ┃ Devices ┃ PID    ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━┩
+│ /dev/accel0 │ TPU v4 chip │ 1       │ 130007 │
+│ /dev/accel1 │ TPU v4 chip │ 1       │ 130007 │
+│ /dev/accel2 │ TPU v4 chip │ 1       │ 130007 │
+│ /dev/accel3 │ TPU v4 chip │ 1       │ 130007 │
+└─────────────┴─────────────┴─────────┴────────┘
+Connected to libtpu at grpc://localhost:8431...
+TPU Utilization
+┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Device ┃ Memory usage         ┃ Duty cycle ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ 0      │ 0.00 GiB / 31.75 GiB │      0.00% │
+│ 1      │ 0.00 GiB / 31.75 GiB │      0.00% │
+│ 2      │ 0.00 GiB / 31.75 GiB │      0.00% │
+│ 3      │ 0.00 GiB / 31.75 GiB │      0.00% │
+└────────┴──────────────────────┴────────────┘
 ```
 
 [^1]: Releases from before 2024 may not be compatible.

@@ -13,18 +13,29 @@
 # limitations under the License.
 
 [build-system]
-requires = ["hatchling", "hatch-build-scripts", "grpcio-tools"]
+requires = ["hatchling", "hatch-build-scripts", "grpcio-tools~=1.65.5"]
 build-backend = "hatchling.build"
 
 [project]
-version = "0.0.1"
+version = "0.1.0"
 name = "tpu-info"
 dependencies = [
-  "grpcio",
+  # `grpcio` should match `grpcio-tools` build dependency
+  "grpcio>=1.65.5",
   "protobuf",
   "rich",
 ]
+authors = [
+  { name="Cloud TPU Team", email="cloud-tpu-eng@google.com" },
+]
+description = "CLI tool to view TPU metrics"
+readme = "README.md"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.8"
+
+[project.urls]
+homepage = "https://github.com/google/cloud-accelerator-diagnostics/tree/main/tpu_info"
+repository = "https://github.com/google/cloud-accelerator-diagnostics"
 
 [project.optional-dependencies]
 test = [
