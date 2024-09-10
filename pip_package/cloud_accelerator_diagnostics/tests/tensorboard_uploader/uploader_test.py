@@ -21,31 +21,21 @@ from cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src
 class UploaderTest(absltest.TestCase):
 
   @absltest.mock.patch(
-      "google.cloud.aiplatform.aiplatform.TensorboardExperiment"
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.tensorboard"
   )
   @absltest.mock.patch(
-      "google.cloud.aiplatform.aiplatform.tensorboard.TensorboardExperiment.list"
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.aiplatform"
   )
-  @absltest.mock.patch("google.cloud.aiplatform.aiplatform.Tensorboard")
-  @absltest.mock.patch(
-      "google.cloud.aiplatform.aiplatform.tensorboard.Tensorboard.list"
-  )
-  def testThreadRunningForUploadToTensorboard(
+  def testWhenUploadToTensorboardThenVertexUploaderIsCalled(
       self,
-      mock_tensorboard_list,
+      mock_aiplatform,
       mock_tensorboard,
-      mock_experiment_list,
-      mock_experiment,
   ):
-    mock_tensorboard_instance = mock_tensorboard.return_value
-    mock_tensorboard_instance.display_name = "test-instance"
-    mock_tensorboard_instance.name = "123"
-    mock_tensorboard_list.return_value = [mock_tensorboard_instance]
+    # given
+    mock_tensorboard.get_instance_identifiers.return_value = ["test_experiment"]
+    mock_tensorboard.get_experiment.return_value = "test-experiment"
 
-    mock_experiment_instance = mock_experiment.return_value
-    mock_experiment_instance.display_name = "test-experiment"
-    mock_experiment_list.return_value = [mock_experiment_instance]
-
+    # when
     uploader.start_upload_to_tensorboard(
         "test-project",
         "us-central1",
@@ -53,19 +43,32 @@ class UploaderTest(absltest.TestCase):
         "test-instance",
         "logdir",
     )
-    self.assertEqual(threading.active_count(), 2)
 
-    uploader.stop_upload_to_tensorboard()
-    self.assertEqual(threading.active_count(), 1)
+    # then
+    mock_aiplatform.init.assert_called_once_with(
+        project="test-project", location="us-central1"
+    )
+    mock_aiplatform.start_upload_tb_log.assert_called_once_with(
+        tensorboard_id="test_experiment",
+        tensorboard_experiment_name="test-experiment",
+        logdir="logdir",
+    )
 
   @absltest.mock.patch(
-      "google.cloud.aiplatform.aiplatform.tensorboard.Tensorboard.list"
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.tensorboard"
   )
-  def testThreadNotRunningForUploadWhenNoTensorboardExist(
-      self, mock_tensorboard_list
+  @absltest.mock.patch(
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.aiplatform"
+  )
+  def testWhenNoTensorboardExistsThenVertexUploaderNotCalled(
+      self,
+      mock_aiplatform,
+      mock_tensorboard,
   ):
-    mock_tensorboard_list.return_value = []
+    # given
+    mock_tensorboard.get_instance_identifiers.return_value = []
 
+    # when
     with self.assertLogs(level="ERROR") as log:
       uploader.start_upload_to_tensorboard(
           "test-project",
@@ -75,32 +78,34 @@ class UploaderTest(absltest.TestCase):
           "logdir",
       )
 
+    # then
     self.assertEqual(threading.active_count(), 1)
     self.assertRegex(
         log.output[0],
         "No Tensorboard instance with the name test-instance present in the"
         " project test-project.",
     )
-
-    uploader.stop_upload_to_tensorboard()
-    self.assertEqual(threading.active_count(), 1)
+    mock_aiplatform.init.assert_called_once_with(
+        project="test-project", location="us-central1"
+    )
+    mock_aiplatform.start_upload_tb_log.assert_not_called()
 
   @absltest.mock.patch(
-      "google.cloud.aiplatform.aiplatform.tensorboard.TensorboardExperiment.list"
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.tensorboard"
   )
-  @absltest.mock.patch("google.cloud.aiplatform.aiplatform.Tensorboard")
   @absltest.mock.patch(
-      "google.cloud.aiplatform.aiplatform.tensorboard.Tensorboard.list"
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.aiplatform"
   )
-  def testThreadNotRunningForUploadWhenNoExperimentExist(
-      self, mock_tensorboard_list, mock_tensorboard, mock_experiment_list
+  def testWhenNoExperimentExistsThenVertexUploaderNotCalled(
+      self,
+      mock_aiplatform,
+      mock_tensorboard,
   ):
-    mock_tensorboard_instance = mock_tensorboard.return_value
-    mock_tensorboard_instance.display_name = "test-instance"
-    mock_tensorboard_instance.name = "123"
-    mock_tensorboard_list.return_value = [mock_tensorboard_instance]
-    mock_experiment_list.return_value = []
+    # given
+    mock_tensorboard.get_instance_identifiers.return_value = ["test_experiment"]
+    mock_tensorboard.get_experiment.return_value = None
 
+    # when
     with self.assertLogs(level="ERROR") as log:
       uploader.start_upload_to_tensorboard(
           "test-project",
@@ -110,15 +115,29 @@ class UploaderTest(absltest.TestCase):
           "logdir",
       )
 
-    self.assertEqual(threading.active_count(), 1)
+    # then
     self.assertRegex(
         log.output[0],
         "No Tensorboard experiment with the name test-experiment present in"
         " the project test-project.",
     )
+    mock_aiplatform.init.assert_called_once_with(
+        project="test-project", location="us-central1"
+    )
+    mock_aiplatform.start_upload_tb_log.assert_not_called()
 
+  @absltest.mock.patch(
+      "cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader.uploader.aiplatform"
+  )
+  def testWhenStopUploadToTensorboardIsCalledThenVertexUploadIsStopped(
+      self,
+      mock_aiplatform,
+  ):
+    # when
     uploader.stop_upload_to_tensorboard()
-    self.assertEqual(threading.active_count(), 1)
+
+    # then
+    mock_aiplatform.end_upload_tb_log.assert_called_once()
 
 
 if __name__ == "__main__":

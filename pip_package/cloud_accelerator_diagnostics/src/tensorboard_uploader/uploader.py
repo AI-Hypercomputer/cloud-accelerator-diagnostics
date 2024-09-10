@@ -19,17 +19,12 @@ AI.
 """
 
 import logging
-import threading
-import time
 
 from cloud_accelerator_diagnostics.pip_package.cloud_accelerator_diagnostics.src.tensorboard_uploader import tensorboard
 from google.cloud.aiplatform import aiplatform
 
 
 logger = logging.getLogger(__name__)
-_exit_flag = threading.Event()
-_exit_flag.clear()
-_upload_thread = None
 
 
 def start_upload_to_tensorboard(
@@ -98,24 +93,18 @@ def start_upload_to_tensorboard(
       return
 
     start_upload(tensorboard_id, experiment_name, logdir)
-  except (ValueError, Exception):
+  except (ValueError, Exception) as e:
     logger.exception(
         "Error while uploading logs to Tensorboard. This will not impact the"
-        " workload."
+        " workload. Error: %s",
+        e,
     )
 
 
 def stop_upload_to_tensorboard():
   """Stops the thread created by `start_upload_to_tensorboard()`."""
-  # TODO(b/315820239): Call `aiplatform.end_upload_tb_log()` instead when
-  # continuous monitoring for `profile` plugin is enabled
-  _exit_flag.set()
-  if _upload_thread:
-    logger.info(
-        "Waiting for completion of thread to upload logs to Tensorboard."
-    )
-    _upload_thread.join()
   logger.info("Logs will no longer be uploaded to Tensorboard.")
+  aiplatform.end_upload_tb_log()
 
 
 def start_upload(tensorboard_id, experiment_name, logdir):
@@ -126,38 +115,16 @@ def start_upload(tensorboard_id, experiment_name, logdir):
     experiment_name (str): The name of the Tensorboard experiment.
     logdir (str): path of the log directory to upload to Tensorboard.
   """
-  # TODO(b/315820239): Remove threading and call
-  # `aiplatform.start_upload_tb_log()` instead when continuous monitoring for
-  # `profile` plugin is enabled
-  _exit_flag.clear()
-  global _upload_thread
-  _upload_thread = threading.Thread(
-      target=upload_logs, args=(tensorboard_id, experiment_name, logdir)
-  )
   logger.info("Starting uploading of logs to Tensorboard.")
-  _upload_thread.start()
-
-
-def upload_logs(tensorboard_id, experiment_name, logdir):
-  """Upload logs to Tensorboard instance in VertexAI.
-
-  Args:
-    tensorboard_id (str): The id of Tensorboard instance.
-    experiment_name (str): The name of the Tensorboard experiment.
-    logdir (str): path of the log directory to upload to Tensorboard.
-  """
-  while not _exit_flag.is_set():
-    time.sleep(1)
-    try:
-      aiplatform.upload_tb_log(
-          tensorboard_id=tensorboard_id,
-          tensorboard_experiment_name=experiment_name,
-          logdir=logdir,
-          run_name_prefix="",
-          allowed_plugins=frozenset(["profile"]),
-      )
-    except Exception:
-      logger.exception(
-          "Error while uploading logs to Tensorboard. This will not impact the"
-          " workload."
-      )
+  try:
+    aiplatform.start_upload_tb_log(
+        tensorboard_id=tensorboard_id,
+        tensorboard_experiment_name=experiment_name,
+        logdir=logdir,
+    )
+  except Exception as e:
+    logger.exception(
+        "Error while uploading logs to Tensorboard. This will not impact the"
+        " workload. Error: %s",
+        e,
+    )
