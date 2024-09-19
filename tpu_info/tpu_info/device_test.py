@@ -73,6 +73,14 @@ class TestDevice(parameterized.TestCase):
               device.TpuChip.V5P,
               4,
           ),
+          (
+              "v6e-4",
+              device.GOOGLE_PCI_VENDOR_ID,
+              "0x006f",
+              "0x0000",
+              device.TpuChip.V6E,
+              4,
+          ),
           ("not_google", "0x1234", "0x0000", "0x0000", None, 1),
           (
               "invalid_device_id",
