@@ -41,7 +41,7 @@ class TpuChip(enum.Enum):
   V4 = Info("v4", hbm_gib=32, devices_per_chip=1)
   V5E = Info("v5e", hbm_gib=16, devices_per_chip=1)
   V5P = Info("v5p", hbm_gib=95, devices_per_chip=1)
-  V6E = Info("v6e", hbm_gib=32, devices_per_chip=1) #TODO: Check if devices per chip is correct
+  V6E = Info("v6e", hbm_gib=32, devices_per_chip=1)
 
   @classmethod
   def from_pci_device_id(
