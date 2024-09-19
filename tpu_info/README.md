@@ -19,8 +19,8 @@
 runtime metrics from `libtpu`, including memory usage.
 
 Note: to access `libtpu` utilization metrics, you must have a workload running
-with a supported ML framework, such as JAX or PyTorch/XLA with `libtpu`'s
-runtime metrics enabled. See the [Usage](#usage) section for more information.
+with a supported ML framework, such as JAX or PyTorch/XLA. See the
+[Usage](#usage) section for more information.
 
 ## Installing
 
@@ -42,9 +42,16 @@ To view current TPU utilization data, `tpu-info` requires a running TPU workload
 with supported ML framework[^1] such as JAX or PyTorch/XLA. For example:
 
 ```
+# JAX
+>>> import jax
+>>> jax.device_count()
+4
+# Create a tensor on the TPU
+>>> t = jax.numpy.ones((300, 300))
+
+# PyTorch/XLA
 >>> import torch
 >>> import torch_xla
-# Create a tensor on the TPU
 >>> t = torch.randn((300, 300), device=torch_xla.device())
 ```
 
