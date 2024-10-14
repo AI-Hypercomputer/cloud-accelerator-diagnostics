@@ -14,7 +14,7 @@
 
 [project]
 name = "cloud-accelerator-diagnostics"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="Cloud TPU Team", email="cloud-tpu-eng@google.com" },
 ]

@@ -31,6 +31,11 @@ To release a new version (e.g. from `1.0.0` -> `2.0.0`):
 
 -->
 
+# [0.1.1] - 2024-10-14
+* Version 0.1.1 of `cloud-accelerator-diagnostics` PyPI package
+* Features:
+  * Use Vertex AI's continuous uploader directly
+
 # [0.1.0] - 2024-03-20
 * Initial release of `cloud-accelerator-diagnostics` PyPI package
 * Features:
