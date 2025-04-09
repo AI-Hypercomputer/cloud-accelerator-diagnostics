@@ -71,22 +71,34 @@ def print_chip_info():
   except grpc.RpcError as e:
     if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
       print(
-          "Libtpu metrics unavailable. Is there a framework using the TPU? See"
+          "WARNING: Libtpu metrics unavailable. Is there a framework using the"
+          " TPU? See"
           " https://github.com/google/cloud-accelerator-diagnostics/tree/main/tpu_info"
           " for more information"
       )
-      return
     else:
-      raise e
+      print(f"ERROR: {e}")
+
+    device_usage = [metrics.Usage(i, -1, -1, -1) for i in range(count)]
 
   # TODO(wcromar): take alternative ports as a flag
   print("Connected to libtpu at grpc://localhost:8431...")
   for chip in device_usage:
+    if chip.memory_usage < 0:
+      memory_usage = "N/A"
+    else:
+      memory_usage = (
+          f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
+          f" {_bytes_to_gib(chip.total_memory):.2f} GiB"
+      )
+    if chip.duty_cycle_pct < 0:
+      duty_cycle_pct = "N/A"
+    else:
+      duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
     table.add_row(
         str(chip.device_id),
-        f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
-        f" {_bytes_to_gib(chip.total_memory):.2f} GiB",
-        f"{chip.duty_cycle_pct:.2f}%"
+        memory_usage,
+        duty_cycle_pct
         if chip_type.value.devices_per_chip == 1 or chip.device_id % 2 == 0
         else "",
     )
