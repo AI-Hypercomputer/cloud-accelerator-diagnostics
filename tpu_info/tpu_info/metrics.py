@@ -32,6 +32,9 @@ class MetricName(enum.Enum):
   TOTAL_MEMORY = "tpu.runtime.hbm.memory.total.bytes"
   MEMORY_USAGE = "tpu.runtime.hbm.memory.usage.bytes"
   DUTY_CYCLE_PCT = "tpu.runtime.tensorcore.dutycycle.percent"
+  BUFFER_TRANSFER_LATENCY_US = (
+      "megascale.dcn_transfer_latencies.microsecond.cumulative.distribution"
+  )
 
 
 class Usage(typing.NamedTuple):
@@ -41,6 +44,16 @@ class Usage(typing.NamedTuple):
   memory_usage: int
   total_memory: int
   duty_cycle_pct: float
+
+
+class BufferTransferLatencyDistribution(typing.NamedTuple):
+  """Distribution measurements."""
+
+  buffer_size: str
+  p50: float
+  p90: float
+  p95: float
+  p999: float
 
 
 def get_chip_usage(
@@ -94,3 +107,75 @@ def get_chip_usage(
       )
       for u, t, d in zip(usages, totals, duty_cycle_pct_per_core)
   ]
+
+
+def _get_percentile(
+    percentile_count: int,
+    total_count: int,
+    buckets: List[int],
+    scale: float,
+    growth_factor: float,
+) -> float:
+  """Gets a percentile value from a distribution."""
+  for i in range(len(buckets) - 1, 0, -1):
+    total_count -= buckets[i]
+    if total_count <= percentile_count:
+      delta = percentile_count - total_count
+      lower_bound = scale * (growth_factor ** (i - 1))
+      return lower_bound * (1 + (delta / buckets[i]) * (growth_factor - 1))
+  return 1
+
+
+def get_buffer_transfer_latency(
+    addr: str = "localhost:8431",
+) -> List[BufferTransferLatencyDistribution]:
+  """Gets buffer transfer latency statistics for all attached TPU devices.
+
+  Args:
+    addr: GRPC address of libtpu metrics server.
+
+  Returns:
+    List of buffer transfer latency statistics for each TPU device.
+  """
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+
+  resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
+      tpu_metrics.MetricRequest(
+          metric_name=MetricName.BUFFER_TRANSFER_LATENCY_US.value
+      )
+  )
+
+  buffer_transfer_latency_distributions = []
+
+  for metric in resp.metric.metrics:
+    attribute = metric.attribute
+    distribution = metric.distribution
+    bucket = list(distribution.bucket_counts)
+    count = distribution.count
+    scale = distribution.bucket_options.exponential_buckets.scale
+    growth_factor = (
+        distribution.bucket_options.exponential_buckets.growth_factor
+    )
+
+    p50_count = int(count * 0.5)
+    p90_count = int(count * 0.9)
+    p95_count = int(count * 0.95)
+    p999_count = int(count * 0.999)
+
+    p50 = _get_percentile(p50_count, count, bucket, scale, growth_factor)
+    p90 = _get_percentile(p90_count, count, bucket, scale, growth_factor)
+    p95 = _get_percentile(p95_count, count, bucket, scale, growth_factor)
+    p999 = _get_percentile(p999_count, count, bucket, scale, growth_factor)
+
+    buffer_transfer_latency_distributions.append(
+        BufferTransferLatencyDistribution(
+            attribute.value.kvlist_attr.attributes[0].value.string_attr,
+            p50,
+            p90,
+            p95,
+            p999,
+        )
+    )
+
+  return buffer_transfer_latency_distributions
