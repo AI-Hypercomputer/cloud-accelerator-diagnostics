@@ -61,9 +61,11 @@ def print_chip_info():
 
   console.print(table)
 
-  table = rich.table.Table(title="TPU Utilization", title_justify="left")
+  table = rich.table.Table(
+      title="TPU Runtime Utilization", title_justify="left"
+  )
   table.add_column("Device")
-  table.add_column("Memory usage")
+  table.add_column("HBM usage")
   table.add_column("Duty cycle", justify="right")
 
   try:
@@ -103,6 +105,35 @@ def print_chip_info():
         else "",
     )
 
+  console.print(table)
+
+  table = rich.table.Table(title="TensorCore Utilization", title_justify="left")
+  table.add_column("Chip ID")
+  table.add_column("TensorCore Utilization", justify="right")
+
+  try:
+    # pylint: disable=g-import-not-at-top
+    from libtpu import sdk  # pytype: disable=import-error
+
+    tensorcore_util_data = sdk.monitoring.get_metric("tensorcore_util").data()
+  except ImportError as e:
+    print(f"WARNING: ImportError: {e}.")
+    tensorcore_util_data = ["N/A"] * count
+  except RuntimeError as e:
+    print(
+        f"WARNING: {e}. Please check if the latest vbar control agent is used."
+    )
+    tensorcore_util_data = ["N/A"] * count
+
+  for i in range(len(tensorcore_util_data)):
+    if tensorcore_util_data[i] == "N/A":
+      tc_data = "N/A"
+    else:
+      tc_data = f"{tensorcore_util_data[i]}%"
+    table.add_row(
+        str(i),
+        tc_data,
+    )
   console.print(table)
 
   table = rich.table.Table(
