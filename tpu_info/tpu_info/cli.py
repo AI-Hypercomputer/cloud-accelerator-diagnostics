@@ -118,23 +118,22 @@ def print_chip_info():
     tensorcore_util_data = sdk.monitoring.get_metric("tensorcore_util").data()
   except ImportError as e:
     print(f"WARNING: ImportError: {e}.")
-    tensorcore_util_data = ["N/A"] * count
+  except AttributeError as e:
+    print(
+        f"WARNING: {e}. Please check if the latest libtpu is used"
+    )
   except RuntimeError as e:
     print(
         f"WARNING: {e}. Please check if the latest vbar control agent is used."
     )
-    tensorcore_util_data = ["N/A"] * count
-
-  for i in range(len(tensorcore_util_data)):
-    if tensorcore_util_data[i] == "N/A":
-      tc_data = "N/A"
-    else:
+  else:
+    for i in range(len(tensorcore_util_data)):
       tc_data = f"{tensorcore_util_data[i]}%"
-    table.add_row(
-        str(i),
-        tc_data,
-    )
-  console.print(table)
+      table.add_row(
+          str(i),
+          tc_data,
+      )
+    console.print(table)
 
   table = rich.table.Table(
       title="TPU Buffer Transfer Latency", title_justify="left"
