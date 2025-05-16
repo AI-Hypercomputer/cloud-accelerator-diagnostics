@@ -16,7 +16,7 @@
 
 Top-level functions should be added to `project.scripts` in `pyproject.toml`.
 """
-
+from tpu_info import args
 from tpu_info import device
 from tpu_info import metrics
 import grpc
@@ -30,6 +30,14 @@ def _bytes_to_gib(size: int) -> float:
 
 def print_chip_info():
   """Print local TPU devices and libtpu runtime metrics."""
+  cli_args = args.parse_arguments()
+  if cli_args.streaming:
+    # TODO: b/410023017 - Placeholder message,actual streaming functionality
+    # will be in a later CL.
+    print(
+        f"Notice: Streaming mode requested with rate {cli_args.rate}s. Actual"
+        " streaming not yet implemented."
+    )
   # TODO(wcromar): Merge all of this info into one table
   chip_type, count = device.get_local_chips()
   if not chip_type:
