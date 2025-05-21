@@ -16,12 +16,17 @@
 
 Top-level functions should be added to `project.scripts` in `pyproject.toml`.
 """
+
+import sys
+import time
 from typing import Any, List
+
 from tpu_info import args
 from tpu_info import device
 from tpu_info import metrics
 import grpc
-import rich.console
+from rich.console import Console, Group
+from rich.live import Live
 import rich.table
 
 
@@ -180,15 +185,53 @@ def print_chip_info():
     return
 
   if cli_args.streaming:
-    # TODO: b/410023017 - Placeholder message,actual streaming functionality
-    # will be in a later CL.
-    print(
-        f"Notice: Streaming mode requested with rate {cli_args.rate}s. Actual"
-        " streaming not yet implemented."
-    )
-  renderables_to_print = _fetch_and_render_tables(chip_type, count)
+    if cli_args.rate <= 0:
+      print("Error: Refresh rate must be positive.", file=sys.stderr)
+      return
 
-  if renderables_to_print:
-    console = rich.console.Console()
-    for item in renderables_to_print:
-      console.print(item)
+    print(
+        f"Starting streaming mode (refresh rate: {cli_args.rate}s). Press"
+        " Ctrl+C to exit."
+    )
+
+    try:
+      renderables = _fetch_and_render_tables(chip_type, count)
+
+      if not renderables and chip_type:
+        print(
+            "No data tables could be generated. Exiting streaming.",
+            file=sys.stderr,
+        )
+        return
+
+      render_group = Group(*renderables)
+
+      with Live(
+          render_group,
+          refresh_per_second=4,
+          screen=True,
+          vertical_overflow="visible",
+      ) as live:
+        while True:
+          time.sleep(cli_args.rate)
+          new_renderables = _fetch_and_render_tables(chip_type, count)
+          live.update(Group(*new_renderables))
+    except KeyboardInterrupt:
+      print("\nExiting streaming mode.")
+    except Exception as e:
+      import traceback
+
+      print(
+          f"\nAn unexpected error occurred in streaming mode: {e}",
+          file=sys.stderr,
+      )
+      traceback.print_exc(file=sys.stderr)
+      sys.exit(1)
+
+  else:
+    renderables = _fetch_and_render_tables(chip_type, count)
+
+    if renderables:
+      console_obj = Console()
+      for item in renderables:
+        console_obj.print(item)
