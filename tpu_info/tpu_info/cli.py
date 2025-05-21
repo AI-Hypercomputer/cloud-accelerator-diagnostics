@@ -16,6 +16,7 @@
 
 Top-level functions should be added to `project.scripts` in `pyproject.toml`.
 """
+from typing import Any, List
 from tpu_info import args
 from tpu_info import device
 from tpu_info import metrics
@@ -28,23 +29,11 @@ def _bytes_to_gib(size: int) -> float:
   return size / (1 << 30)
 
 
-def print_chip_info():
-  """Print local TPU devices and libtpu runtime metrics."""
-  cli_args = args.parse_arguments()
-  if cli_args.streaming:
-    # TODO: b/410023017 - Placeholder message,actual streaming functionality
-    # will be in a later CL.
-    print(
-        f"Notice: Streaming mode requested with rate {cli_args.rate}s. Actual"
-        " streaming not yet implemented."
-    )
-  # TODO(wcromar): Merge all of this info into one table
-  chip_type, count = device.get_local_chips()
-  if not chip_type:
-    print("No TPU chips found.")
-    return
-
-  console = rich.console.Console()
+# TODO(vidishasethi): b/418938764 - Modularize by extracting
+#  each table's rendering logic into its own dedicated helper function.
+def _fetch_and_render_tables(chip_type: Any, count: int):
+  """Fetches all TPU data and prepares a list of Rich Table objects for display."""
+  renderables: List[rich.table.Table] = []
 
   table = rich.table.Table(title="TPU Chips", title_justify="left")
   table.add_column("Chip")
@@ -67,7 +56,7 @@ def print_chip_info():
         str(owner),
     )
 
-  console.print(table)
+  renderables.append(table)
 
   table = rich.table.Table(
       title="TPU Runtime Utilization", title_justify="left"
@@ -113,7 +102,7 @@ def print_chip_info():
         else "",
     )
 
-  console.print(table)
+  renderables.append(table)
 
   table = rich.table.Table(title="TensorCore Utilization", title_justify="left")
   table.add_column("Chip ID")
@@ -141,7 +130,7 @@ def print_chip_info():
           str(i),
           tc_data,
       )
-    console.print(table)
+    renderables.append(table)
 
   table = rich.table.Table(
       title="TPU Buffer Transfer Latency", title_justify="left"
@@ -176,4 +165,30 @@ def print_chip_info():
         f"{distribution.p95:.2f} us",
         f"{distribution.p999:.2f} us",
     )
-  console.print(table)
+  renderables.append(table)
+
+  return renderables
+
+
+def print_chip_info():
+  """Print local TPU devices and libtpu runtime metrics."""
+  cli_args = args.parse_arguments()
+  # TODO(wcromar): Merge all of this info into one table
+  chip_type, count = device.get_local_chips()
+  if not chip_type:
+    print("No TPU chips found.")
+    return
+
+  if cli_args.streaming:
+    # TODO: b/410023017 - Placeholder message,actual streaming functionality
+    # will be in a later CL.
+    print(
+        f"Notice: Streaming mode requested with rate {cli_args.rate}s. Actual"
+        " streaming not yet implemented."
+    )
+  renderables_to_print = _fetch_and_render_tables(chip_type, count)
+
+  if renderables_to_print:
+    console = rich.console.Console()
+    for item in renderables_to_print:
+      console.print(item)
