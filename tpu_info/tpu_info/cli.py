@@ -29,6 +29,9 @@ from rich.console import Console, Group
 from rich.live import Live
 import rich.table
 
+from rich.console import RenderableType
+from rich.panel import Panel
+
 
 def _bytes_to_gib(size: int) -> float:
   return size / (1 << 30)
@@ -36,9 +39,9 @@ def _bytes_to_gib(size: int) -> float:
 
 # TODO(vidishasethi): b/418938764 - Modularize by extracting
 #  each table's rendering logic into its own dedicated helper function.
-def _fetch_and_render_tables(chip_type: Any, count: int):
+def _fetch_and_render_tables(chip_type: Any, count: int)-> List[RenderableType]:
   """Fetches all TPU data and prepares a list of Rich Table objects for display."""
-  renderables: List[rich.table.Table] = []
+  renderables: List[RenderableType] = []
 
   table = rich.table.Table(title="TPU Chips", title_justify="left")
   table.add_column("Chip")
@@ -73,20 +76,34 @@ def _fetch_and_render_tables(chip_type: Any, count: int):
   try:
     device_usage = metrics.get_chip_usage(chip_type)
   except grpc.RpcError as e:
+    exception_message: str
+    exception_renderable: Panel
     if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
-      print(
-          "WARNING: Libtpu metrics unavailable. Is there a framework using the"
+      exception_message = (
+          "Libtpu metrics unavailable. Is there a framework using the"
           " TPU? See"
-          " https://github.com/google/cloud-accelerator-diagnostics/tree/main/tpu_info"
-          " for more information"
+          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          "tree/main/tpu_info]tpu_info docs[/link]"
+          " for more information."
+      )
+      exception_renderable = Panel(
+          f"[yellow]WARNING:[/yellow] {exception_message}",
+          title="[b]Runtime Utilization Status[/b]",
+          border_style="yellow",
       )
     else:
-      print(f"ERROR: {e}")
+      exception_message = f"ERROR fetching runtime utilization: {e}"
+      exception_renderable = Panel(
+          f"[red]{exception_message}[/red]",
+          title="[b]Runtime Utilization Error[/b]",
+          border_style="red",
+      )
+    renderables.append(exception_renderable)
 
     device_usage = [metrics.Usage(i, -1, -1, -1) for i in range(count)]
 
   # TODO(wcromar): take alternative ports as a flag
-  print("Connected to libtpu at grpc://localhost:8431...")
+  # print("Connected to libtpu at grpc://localhost:8431...")
   for chip in device_usage:
     if chip.memory_usage < 0:
       memory_usage = "N/A"
@@ -119,14 +136,30 @@ def _fetch_and_render_tables(chip_type: Any, count: int):
 
     tensorcore_util_data = sdk.monitoring.get_metric("tensorcore_util").data()
   except ImportError as e:
-    print(f"WARNING: ImportError: {e}.")
+    renderables.append(
+        Panel(
+            f"[yellow]WARNING: ImportError: {e}. libtpu SDK not available.[/]",
+            title="[b]TensorCore Status[/b]",
+            border_style="yellow",
+        )
+    )
   except AttributeError as e:
-    print(
-        f"WARNING: {e}. Please check if the latest libtpu is used"
+    renderables.append(
+        Panel(
+            f"[yellow]WARNING: AttributeError: {e}. Please check if the"
+            " latest libtpu is used.[/]",
+            title="[b]TensorCore Status[/b]",
+            border_style="yellow",
+        )
     )
   except RuntimeError as e:
-    print(
-        f"WARNING: {e}. Please check if the latest vbar control agent is used."
+    renderables.append(
+        Panel(
+            f"[yellow]WARNING: RuntimeError: {e}. Please check if the latest vbar"
+            " control agent is used.[/]",
+            title="[b]TensorCore Status[/b]",
+            border_style="yellow",
+        )
     )
   else:
     for i in range(len(tensorcore_util_data)):
@@ -151,14 +184,27 @@ def _fetch_and_render_tables(chip_type: Any, count: int):
         metrics.get_buffer_transfer_latency()
     )
   except grpc.RpcError as e:
+    exception_message: str
+    exception_renderable: Panel
     if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
-      print(
-          "WARNING: Buffer Transfer Latency metrics unavailable. Did you start"
+      exception_message = (
+          "Buffer Transfer Latency metrics unavailable. Did you start"
           " a MULTI_SLICE workload with"
           " `TPU_RUNTIME_METRICS_PORTS=8431,8432,8433,8434`?"
       )
+      renderables.append(
+          Panel(f"[yellow]WARNING:[/yellow] {exception_message}",
+                title="[b]Buffer Transfer Latency Status[/b]",
+                border_style="yellow")
+      )
+
     else:
-      print(f"ERROR: {e}")
+      exception_message = f"ERROR fetching buffer transfer latency: {e}"
+      renderables.append(
+          Panel(f"[red]{exception_message}[/red]",
+                title="[b]Buffer Transfer Latency Error[/b]",
+                border_style="red")
+      )
 
     buffer_transfer_latency_distributions = []
 
@@ -188,7 +234,6 @@ def print_chip_info():
     if cli_args.rate <= 0:
       print("Error: Refresh rate must be positive.", file=sys.stderr)
       return
-
     print(
         f"Starting streaming mode (refresh rate: {cli_args.rate}s). Press"
         " Ctrl+C to exit."
@@ -213,19 +258,25 @@ def print_chip_info():
           vertical_overflow="visible",
       ) as live:
         while True:
-          time.sleep(cli_args.rate)
-          new_renderables = _fetch_and_render_tables(chip_type, count)
-          live.update(Group(*new_renderables))
+          try:
+            time.sleep(cli_args.rate)
+            new_renderables = _fetch_and_render_tables(chip_type, count)
+            live.update(Group(*(new_renderables if new_renderables else [])))
+          except Exception as e:
+            print(
+                "\nFATAL ERROR during streaming update cycle, stopping stream:"
+                f" {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            raise e
     except KeyboardInterrupt:
       print("\nExiting streaming mode.")
-    except Exception as e:
-      import traceback
-
+    except Exception as e:  # pylint: disable=broad-exception-caught
       print(
-          f"\nAn unexpected error occurred in streaming mode: {e}",
+          "\nAn unexpected error occurred in streaming mode :"
+          f" {type(e).__name__}: {e}",
           file=sys.stderr,
       )
-      traceback.print_exc(file=sys.stderr)
       sys.exit(1)
 
   else:
@@ -235,3 +286,4 @@ def print_chip_info():
       console_obj = Console()
       for item in renderables:
         console_obj.print(item)
+
