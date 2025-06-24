@@ -26,9 +26,10 @@ from tpu_info import cli_helper
 from tpu_info import device
 from tpu_info import metrics
 import grpc
-import rich
 from rich import console
+from rich import live
 from rich import panel
+from rich import table as rich_table
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -43,7 +44,7 @@ def _fetch_and_render_tables(
   """Fetches all TPU data and prepares a list of Rich Table objects for display."""
   renderables: List[console.RenderableType] = []
 
-  table = rich.table.Table(title="TPU Chips", title_justify="left")
+  table = rich_table.Table(title="TPU Chips", title_justify="left")
   table.add_column("Chip")
   table.add_column("Type")
   table.add_column("Devices")
@@ -66,7 +67,7 @@ def _fetch_and_render_tables(
 
   renderables.append(table)
 
-  table = rich.table.Table(
+  table = rich_table.Table(
       title="TPU Runtime Utilization", title_justify="left"
   )
   table.add_column("Device")
@@ -126,7 +127,7 @@ def _fetch_and_render_tables(
 
   renderables.append(table)
 
-  table = rich.table.Table(title="TensorCore Utilization", title_justify="left")
+  table = rich_table.Table(title="TensorCore Utilization", title_justify="left")
   table.add_column("Chip ID")
   table.add_column("TensorCore Utilization", justify="right")
 
@@ -170,7 +171,7 @@ def _fetch_and_render_tables(
       )
     renderables.append(table)
 
-  table = rich.table.Table(
+  table = rich_table.Table(
       title="TPU Buffer Transfer Latency", title_justify="left"
   )
   table.add_column("Buffer Size")
@@ -258,17 +259,17 @@ def print_chip_info():
 
       render_group = console.Group(*renderables)
 
-      with rich.live.Live(
+      with live.Live(
           render_group,
           refresh_per_second=4,
           screen=True,
           vertical_overflow="visible",
-      ) as live:
+      ) as live_display:
         while True:
           try:
             time.sleep(cli_args.rate)
             new_renderables = _fetch_and_render_tables(chip_type, count)
-            live.update(
+            live_display.update(
                 console.Group(*(new_renderables if new_renderables else []))
             )
           except Exception as e:
