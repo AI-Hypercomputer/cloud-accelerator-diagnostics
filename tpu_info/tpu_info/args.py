@@ -24,6 +24,12 @@ def parse_arguments():
       formatter_class=argparse.RawTextHelpFormatter,
   )
   parser.add_argument(
+      "-v",
+      "--version",
+      action="store_true",
+      help="Displays the tpu cli version",
+  )
+  parser.add_argument(
       "--streaming",
       action="store_true",
       help="Enable streaming mode to refresh metrics continuously",
