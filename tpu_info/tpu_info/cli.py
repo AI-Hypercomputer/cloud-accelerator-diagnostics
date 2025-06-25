@@ -17,6 +17,7 @@
 Top-level functions should be added to `project.scripts` in `pyproject.toml`.
 """
 
+import datetime
 import sys
 import time
 from typing import Any, List
@@ -30,6 +31,7 @@ from rich import console
 from rich import live
 from rich import panel
 from rich import table as rich_table
+from rich import text
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -226,6 +228,19 @@ def _fetch_and_render_tables(
   return renderables
 
 
+def _get_runtime_info(rate: float) -> text.Text:
+  """Returns a Rich Text with runtime info for the streaming mode."""
+  current_ts = time.time()
+  last_updated_time_str = datetime.datetime.fromtimestamp(current_ts).strftime(
+      "%Y-%m-%d %H:%M:%S"
+  )
+  runtime_status = text.Text(
+      f"\nRefresh rate: {rate}s\nLast update: {last_updated_time_str}",
+      justify="right",
+  )
+  return runtime_status
+
+
 def print_chip_info():
   """Print local TPU devices and libtpu runtime metrics."""
   cli_args = args.parse_arguments()
@@ -249,6 +264,7 @@ def print_chip_info():
 
     try:
       renderables = _fetch_and_render_tables(chip_type, count)
+      streaming_status = _get_runtime_info(cli_args.rate)
 
       if not renderables and chip_type:
         print(
@@ -257,10 +273,12 @@ def print_chip_info():
         )
         return
 
-      render_group = console.Group(*renderables)
+      display = console.Group(
+          streaming_status, *(renderables if renderables else [])
+      )
 
       with live.Live(
-          render_group,
+          display,
           refresh_per_second=4,
           screen=True,
           vertical_overflow="visible",
@@ -272,6 +290,7 @@ def print_chip_info():
             live_display.update(
                 console.Group(*(new_renderables if new_renderables else []))
             )
+            live_display.update(display)
           except Exception as e:
             print(
                 "\nFATAL ERROR during streaming update cycle, stopping stream:"
@@ -287,7 +306,6 @@ def print_chip_info():
           f" {type(e).__name__}: {e}",
           file=sys.stderr,
       )
-      sys.exit(1)
 
   else:
     renderables = _fetch_and_render_tables(chip_type, count)
