@@ -27,11 +27,16 @@ from tpu_info import cli_helper
 from tpu_info import device
 from tpu_info import metrics
 import grpc
+import rich
 from rich import console
 from rich import live
 from rich import panel
 from rich import table as rich_table
 from rich import text
+
+
+# The minimum refresh rate in seconds, corresponding to a max of 30 FPS.
+MIN_REFRESH_RATE_SECONDS = 1.0 / 30
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -257,11 +262,30 @@ def print_chip_info():
     if cli_args.rate <= 0:
       print("Error: Refresh rate must be positive.", file=sys.stderr)
       return
+
+   # Warn user and cap the data refresh rate if it's faster than the maximum
+    # supported screen refresh rate (30 FPS).
+    effective_rate = cli_args.rate
+    if cli_args.rate < MIN_REFRESH_RATE_SECONDS:
+      console_obj = rich.console.Console(stderr=True)
+      console_obj.print(
+          f"[yellow]WARNING: Provided rate {cli_args.rate:.3f}s is faster than"
+          " the supported maximum. Capping at"
+          f" {MIN_REFRESH_RATE_SECONDS:.3f}s.[/yellow]"
+      )
+      effective_rate = MIN_REFRESH_RATE_SECONDS
     print(
-        f"Starting streaming mode (refresh rate: {cli_args.rate}s). Press"
+        f"Starting streaming mode (refresh rate: {effective_rate:.1f}s). Press"
         " Ctrl+C to exit."
     )
-
+    # Determine a screen refresh rate that can keep up with the data refresh
+    # rate.
+    data_refresh_hz = 1.0 / effective_rate
+    # Aim for screen updates to be slightly more frequent than data updates.
+    target_screen_fps = data_refresh_hz * 1.2
+    # Ensure a reasonable minimum (4 FPS) and maximum (30 FPS) screen refresh
+    # rate.
+    screen_refresh_per_second = min(max(4, int(target_screen_fps)), 30)
     try:
       renderables = _fetch_and_render_tables(chip_type, count)
       streaming_status = _get_runtime_info(cli_args.rate)
@@ -279,16 +303,17 @@ def print_chip_info():
 
       with live.Live(
           display,
-          refresh_per_second=4,
+          refresh_per_second=screen_refresh_per_second,
           screen=True,
           vertical_overflow="visible",
       ) as live_display:
         while True:
           try:
-            time.sleep(cli_args.rate)
+            time.sleep(effective_rate)
             new_renderables = _fetch_and_render_tables(chip_type, count)
-            live_display.update(
-                console.Group(*(new_renderables if new_renderables else []))
+            streaming_status = _get_runtime_info(effective_rate)
+            display = console.Group(
+                streaming_status, *(new_renderables if new_renderables else [])
             )
             live_display.update(display)
           except Exception as e:
