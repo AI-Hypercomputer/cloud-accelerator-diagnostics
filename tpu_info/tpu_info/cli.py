@@ -142,7 +142,20 @@ def _fetch_and_render_tables(
     # pylint: disable=g-import-not-at-top
     from libtpu import sdk  # pytype: disable=import-error
 
-    tensorcore_util_data = sdk.monitoring.get_metric("tensorcore_util").data()
+    monitoring_module = None
+    if hasattr(sdk, "tpumonitoring"):
+      monitoring_module = sdk.tpumonitoring
+    elif hasattr(sdk, "monitoring"):
+      monitoring_module = sdk.monitoring
+    if monitoring_module:
+      tensorcore_util_data = monitoring_module.get_metric(
+          "tensorcore_util"
+      ).data()
+    else:
+      raise AttributeError(
+          "Could not find a compatible monitoring module ('tpumonitoring' or"
+          " 'monitoring') in the libtpu SDK."
+      )
   except ImportError as e:
     renderables.append(
         panel.Panel(
