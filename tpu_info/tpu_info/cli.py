@@ -265,6 +265,7 @@ def print_chip_info():
   if cli_args.version:
     print(f"- tpu-info version: {cli_helper.fetch_cli_version()}")
     print(f"- libtpu version: {cli_helper.fetch_libtpu_version()}")
+    print(f"- accelerator type: {cli_helper.fetch_accelerator_type()}")
     return
   # TODO(wcromar): Merge all of this info into one table
   chip_type, count = device.get_local_chips()

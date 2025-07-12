@@ -17,6 +17,8 @@
 import importlib.metadata
 import subprocess
 
+from tpu_info import device
+
 
 def fetch_cli_version() -> str:
   """Returns the version of the current TPU CLI."""
@@ -53,3 +55,16 @@ def fetch_libtpu_version() -> str:
       return f"unknown (error running pip list: {e})"
     except Exception as e:  # pylint: disable=broad-exception-caught
       return f"unknown (unexpected error getting libtpu version: {e})"
+
+
+def fetch_accelerator_type() -> str:
+  """Returns the accelerator type of the current TPU."""
+  try:
+    chip_type, _ = device.get_local_chips()
+
+    if chip_type is None:
+      return "unknown (no TPU chips found)"
+
+    return chip_type.value.name
+  except Exception as e:  # pylint: disable=broad-exception-caught
+    return f"unknown (unexpected error getting accelerator type: {e})"
