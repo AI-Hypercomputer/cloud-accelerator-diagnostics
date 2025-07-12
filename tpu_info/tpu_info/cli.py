@@ -263,7 +263,8 @@ def print_chip_info():
   """Print local TPU devices and libtpu runtime metrics."""
   cli_args = args.parse_arguments()
   if cli_args.version:
-    print(f"tpu-info version: {cli_helper.fetch_cli_version()}")
+    print(f"- tpu-info version: {cli_helper.fetch_cli_version()}")
+    print(f"- libtpu version: {cli_helper.fetch_libtpu_version()}")
     return
   # TODO(wcromar): Merge all of this info into one table
   chip_type, count = device.get_local_chips()

@@ -15,6 +15,7 @@
 """Helper functions for the CLI."""
 
 import importlib.metadata
+import subprocess
 
 
 def fetch_cli_version() -> str:
@@ -24,3 +25,31 @@ def fetch_cli_version() -> str:
   except importlib.metadata.PackageNotFoundError:
     version = "unknown (package metadata not found)"
   return version
+
+
+def fetch_libtpu_version() -> str:
+  """Returns the version of the current libtpu."""
+  try:
+    # pylint: disable=g-import-not-at-top
+    import libtpu  # pytype: disable=import-error
+
+    version = libtpu.__version__
+    return version
+  except Exception:  # pylint: disable=broad-exception-caught
+    try:
+      result = subprocess.run(
+          ["pip", "list"],
+          capture_output=True,
+          text=True,
+          check=True,
+      )
+      for line in result.stdout.splitlines():
+        if "libtpu" in line:
+          parts = line.split()
+          if len(parts) >= 2:
+            return parts[1]
+      return "unknown (libtpu not found)"
+    except subprocess.CalledProcessError as e:
+      return f"unknown (error running pip list: {e})"
+    except Exception as e:  # pylint: disable=broad-exception-caught
+      return f"unknown (unexpected error getting libtpu version: {e})"

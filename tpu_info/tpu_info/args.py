@@ -27,7 +27,7 @@ def parse_arguments():
       "-v",
       "--version",
       action="store_true",
-      help="Displays the tpu cli version",
+      help="Displays the tpu cli version and the libtpu version.",
   )
   parser.add_argument(
       "--streaming",
