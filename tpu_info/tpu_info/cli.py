@@ -51,28 +51,7 @@ def _fetch_and_render_tables(
   """Fetches all TPU data and prepares a list of Rich Table objects for display."""
   renderables: List[console.RenderableType] = []
 
-  table = rich_table.Table(title="TPU Chips", title_justify="left")
-  table.add_column("Chip")
-  table.add_column("Type")
-  table.add_column("Devices")
-  # TODO(wcromar): this may not match the libtpu runtime metrics
-  # table.add_column("HBM (per core)")
-  table.add_column("PID")
-
-  chip_paths = [device.chip_path(chip_type, index) for index in range(count)]
-  chip_owners = device.get_chip_owners()
-
-  for chip in chip_paths:
-    owner = chip_owners.get(chip)
-
-    table.add_row(
-        chip,
-        str(chip_type),
-        str(chip_type.value.devices_per_chip),
-        str(owner),
-    )
-
-  renderables.append(table)
+  renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
 
   table = rich_table.Table(
       title="TPU Runtime Utilization", title_justify="left"

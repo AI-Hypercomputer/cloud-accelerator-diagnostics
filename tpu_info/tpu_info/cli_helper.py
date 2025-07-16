@@ -18,6 +18,9 @@ import importlib.metadata
 import subprocess
 
 from tpu_info import device
+from typing import Any
+from rich import console
+from rich import table as rich_table
 
 
 def fetch_cli_version() -> str:
@@ -68,3 +71,30 @@ def fetch_accelerator_type() -> str:
     return chip_type.value.name
   except Exception as e:  # pylint: disable=broad-exception-caught
     return f"unknown (unexpected error getting accelerator type: {e})"
+
+
+class TpuChipsTable:
+  """Renders a table with TPU chip information."""
+
+  def render(
+      self, chip_type: Any, count: int
+  ) -> console.RenderableType:
+    """Creates a Rich Table with TPU chip information."""
+    table = rich_table.Table(title="TPU Chips", title_justify="left")
+    table.add_column("Chip")
+    table.add_column("Type")
+    table.add_column("Devices")
+    table.add_column("PID")
+
+    chip_paths = [device.chip_path(chip_type, index) for index in range(count)]
+    chip_owners = device.get_chip_owners()
+
+    for chip in chip_paths:
+      owner = chip_owners.get(chip)
+      table.add_row(
+          chip,
+          str(chip_type),
+          str(chip_type.value.devices_per_chip),
+          str(owner),
+      )
+    return table
