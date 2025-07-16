@@ -32,6 +32,12 @@ def parse_arguments():
       ),
   )
   parser.add_argument(
+      "-p",
+      "--process",
+      action="store_true",
+      help="Displays the process ID and name for each TPU chip",
+  )
+  parser.add_argument(
       "--streaming",
       action="store_true",
       help="Enable streaming mode to refresh metrics continuously",

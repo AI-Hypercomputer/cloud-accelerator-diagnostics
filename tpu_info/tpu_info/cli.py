@@ -267,6 +267,13 @@ def print_chip_info():
     print("No TPU chips found.")
     return
 
+  console_obj = console.Console()
+
+  if cli_args.process:
+    table = cli_helper.fetch_process_table(chip_type, count)
+    console_obj.print(table)
+    return
+
   if cli_args.streaming:
     if cli_args.rate <= 0:
       print("Error: Refresh rate must be positive.", file=sys.stderr)
@@ -345,6 +352,5 @@ def print_chip_info():
     renderables = _fetch_and_render_tables(chip_type, count)
 
     if renderables:
-      console_obj = console.Console()
       for item in renderables:
         console_obj.print(item)

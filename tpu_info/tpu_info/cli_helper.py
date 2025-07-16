@@ -16,9 +16,9 @@
 
 import importlib.metadata
 import subprocess
+from typing import Any, Optional
 
 from tpu_info import device
-from typing import Any
 from rich import console
 from rich import table as rich_table
 
@@ -71,6 +71,38 @@ def fetch_accelerator_type() -> str:
     return chip_type.value.name
   except Exception as e:  # pylint: disable=broad-exception-caught
     return f"unknown (unexpected error getting accelerator type: {e})"
+
+
+def get_process_name(pid: int) -> Optional[str]:
+  """Returns the process name for a given PID."""
+  try:
+    with open(f"/proc/{pid}/comm", "r") as f:
+      return f.read().strip()
+  except FileNotFoundError:
+    return None
+
+
+def fetch_process_table(
+    chip_type: device.TpuChip, count: int
+) -> rich_table.Table:
+  """Returns a rich.table.Table with process info for the given TPU chip."""
+  table = rich_table.Table(title="TPU Process Info", title_justify="left")
+  table.add_column("Chip")
+  table.add_column("PID")
+  table.add_column("Process Name")
+
+  chip_paths = [device.chip_path(chip_type, index) for index in range(count)]
+  chip_owners = device.get_chip_owners()
+
+  for chip in chip_paths:
+    owner = chip_owners.get(chip)
+    process_name = get_process_name(owner)
+    table.add_row(
+        chip,
+        str(owner),
+        str(process_name),
+    )
+  return table
 
 
 class TpuChipsTable:
