@@ -56,6 +56,14 @@ class BufferTransferLatencyDistribution(typing.NamedTuple):
   p999: float
 
 
+VALID_METRICS_WITH_PARAMS = {
+    "hbm_usage": None,
+    "duty_cycle_percent": None,
+    "tensorcore_utilization": None,
+    "buffer_transfer_latency": {"percentile": {"p50", "p90", "p95", "p999"}},
+}
+
+
 def get_chip_usage(
     chip_type: device.TpuChip, addr: str = "localhost:8431"
 ) -> List[Usage]:

@@ -45,4 +45,9 @@ def parse_arguments():
           " when streaming is implemented)."
       ),
   )
+  parser.add_argument(
+      "--list_metrics",
+      action="store_true",
+      help="List all supported metrics for metric flag.",
+  )
   return parser.parse_args()

@@ -267,6 +267,21 @@ def print_chip_info():
     print(f"- libtpu version: {cli_helper.fetch_libtpu_version()}")
     print(f"- accelerator type: {cli_helper.fetch_accelerator_type()}")
     return
+
+  if cli_args.list_metrics:
+    console_obj = console.Console()
+    console_obj.print(
+        panel.Panel(
+            "\n".join(
+                f"\t{metric}"
+                for metric in metrics.VALID_METRICS_WITH_PARAMS.keys()
+            ),
+            title="[b]Supported Metrics[/b]",
+            title_align="left",
+        ),
+    )
+    return
+
   # TODO(wcromar): Merge all of this info into one table
   chip_type, count = device.get_local_chips()
   if not chip_type:
@@ -278,7 +293,7 @@ def print_chip_info():
       print("Error: Refresh rate must be positive.", file=sys.stderr)
       return
 
-   # Warn user and cap the data refresh rate if it's faster than the maximum
+    # Warn user and cap the data refresh rate if it's faster than the maximum
     # supported screen refresh rate (30 FPS).
     effective_rate = cli_args.rate
     if cli_args.rate < MIN_REFRESH_RATE_SECONDS:
