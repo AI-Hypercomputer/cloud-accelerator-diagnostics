@@ -39,10 +39,6 @@ from rich import text
 MIN_REFRESH_RATE_SECONDS = 1.0 / 30
 
 
-def _bytes_to_gib(size: int) -> float:
-  return size / (1 << 30)
-
-
 # TODO(vidishasethi): b/418938764 - Modularize by extracting
 #  each table's rendering logic into its own dedicated helper function.
 def _fetch_and_render_tables(
@@ -52,66 +48,9 @@ def _fetch_and_render_tables(
   renderables: List[console.RenderableType] = []
 
   renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
-
-  table = rich_table.Table(
-      title="TPU Runtime Utilization", title_justify="left"
+  renderables.append(
+      cli_helper.TpuRuntimeUtilizationTable().render(chip_type)
   )
-  table.add_column("Device")
-  table.add_column("HBM usage")
-  table.add_column("Duty cycle", justify="right")
-
-  try:
-    device_usage = metrics.get_chip_usage(chip_type)
-  except grpc.RpcError as e:
-    exception_message: str
-    exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
-      exception_message = (
-          "Libtpu metrics unavailable. Is there a framework using the"
-          " TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
-          "tree/main/tpu_info]tpu_info docs[/link]"
-          " for more information."
-      )
-      exception_renderable = panel.Panel(
-          f"[yellow]WARNING:[/yellow] {exception_message}",
-          title="[b]Runtime Utilization Status[/b]",
-          border_style="yellow",
-      )
-    else:
-      exception_message = f"ERROR fetching runtime utilization: {e}"
-      exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
-          title="[b]Runtime Utilization Error[/b]",
-          border_style="red",
-      )
-    renderables.append(exception_renderable)
-
-    device_usage = [metrics.Usage(i, -1, -1, -1) for i in range(count)]
-
-  # TODO(wcromar): take alternative ports as a flag
-  # print("Connected to libtpu at grpc://localhost:8431...")
-  for chip in device_usage:
-    if chip.memory_usage < 0:
-      memory_usage = "N/A"
-    else:
-      memory_usage = (
-          f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
-          f" {_bytes_to_gib(chip.total_memory):.2f} GiB"
-      )
-    if chip.duty_cycle_pct < 0:
-      duty_cycle_pct = "N/A"
-    else:
-      duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
-    table.add_row(
-        str(chip.device_id),
-        memory_usage,
-        duty_cycle_pct
-        if chip_type.value.devices_per_chip == 1 or chip.device_id % 2 == 0
-        else "",
-    )
-
-  renderables.append(table)
 
   table = rich_table.Table(title="TensorCore Utilization", title_justify="left")
   table.add_column("Chip ID")

@@ -12,4 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""A CLI Module that provides TPU runtime information."""
 from . import cli

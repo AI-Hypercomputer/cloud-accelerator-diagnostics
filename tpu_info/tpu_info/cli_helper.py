@@ -19,8 +19,16 @@ import subprocess
 from typing import Any, Optional
 
 from tpu_info import device
+from tpu_info import metrics
+import grpc
 from rich import console
+from rich import panel
 from rich import table as rich_table
+
+
+def _bytes_to_gib(size: int) -> float:
+  """Converts bytes to gibibytes."""
+  return size / (1 << 30)
 
 
 def fetch_cli_version() -> str:
@@ -130,3 +138,62 @@ class TpuChipsTable:
           str(owner),
       )
     return table
+
+
+class TpuRuntimeUtilizationTable:
+  """Renders a table with TPU runtime utilization metrics."""
+
+  def render(self, chip_type: Any) -> console.RenderableType:
+    """Creates a Rich Table or Panel for TPU runtime utilization."""
+    try:
+      device_usage = metrics.get_chip_usage(chip_type)
+    except grpc.RpcError as e:
+      if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+        exception_message = (
+            "Libtpu metrics unavailable. Is there a framework using the"
+            " TPU? See"
+            " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+            "tree/main/tpu_info]tpu_info docs[/link]"
+            " for more information."
+        )
+        return panel.Panel(
+            f"[yellow]WARNING:[/yellow] {exception_message}",
+            title="[b]Runtime Utilization Status[/b]",
+            border_style="yellow",
+        )
+      else:
+        exception_message = f"ERROR fetching runtime utilization: {e}"
+        return panel.Panel(
+            f"[red]{exception_message}[/red]",
+            title="[b]Runtime Utilization Error[/b]",
+            border_style="red",
+        )
+
+    table = rich_table.Table(
+        title="TPU Runtime Utilization", title_justify="left"
+    )
+    table.add_column("Device")
+    table.add_column("HBM usage")
+    table.add_column("Duty cycle", justify="right")
+
+    for chip in device_usage:
+      if chip.memory_usage < 0:
+        memory_usage = "N/A"
+      else:
+        memory_usage = (
+            f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
+            f" {_bytes_to_gib(chip.total_memory):.2f} GiB"
+        )
+      if chip.duty_cycle_pct < 0:
+        duty_cycle_pct = "N/A"
+      else:
+        duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
+      table.add_row(
+          str(chip.device_id),
+          memory_usage,
+          duty_cycle_pct
+          if chip_type.value.devices_per_chip == 1 or chip.device_id % 2 == 0
+          else "",
+      )
+    return table
+
