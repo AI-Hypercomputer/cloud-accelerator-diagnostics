@@ -56,4 +56,15 @@ def parse_arguments():
       action="store_true",
       help="List all supported metrics for metric flag.",
   )
+  parser.add_argument(
+      "--metric",
+      nargs="+",
+      help=(
+          "Metric to display. Supported metrics:\n- hbm_usage: High bandwidth"
+          " memory usage/ total memoery for each device.\n- duty_cycle_percent:"
+          " Duty cycle percentage for each chip.\n- tensorcore_utilization: "
+          " Current percentage of the Tensorcore that is utilized per chip.\n-"
+          " buffer_transfer_latency: The buffer transfer latency distribution."
+      ),
+  )
   return parser.parse_args()
