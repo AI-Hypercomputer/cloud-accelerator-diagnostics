@@ -51,63 +51,7 @@ def _fetch_and_render_tables(
   renderables.extend(
       cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
   )
-
-  table = rich_table.Table(title="TensorCore Utilization", title_justify="left")
-  table.add_column("Chip ID")
-  table.add_column("TensorCore Utilization", justify="right")
-
-  try:
-    # pylint: disable=g-import-not-at-top
-    from libtpu import sdk  # pytype: disable=import-error
-
-    monitoring_module = None
-    if hasattr(sdk, "tpumonitoring"):
-      monitoring_module = sdk.tpumonitoring
-    elif hasattr(sdk, "monitoring"):
-      monitoring_module = sdk.monitoring
-    if monitoring_module:
-      tensorcore_util_data = monitoring_module.get_metric(
-          "tensorcore_util"
-      ).data()
-    else:
-      raise AttributeError(
-          "Could not find a compatible monitoring module ('tpumonitoring' or"
-          " 'monitoring') in the libtpu SDK."
-      )
-  except ImportError as e:
-    renderables.append(
-        panel.Panel(
-            f"[yellow]WARNING: ImportError: {e}. libtpu SDK not available.[/]",
-            title="[b]TensorCore Status[/b]",
-            border_style="yellow",
-        )
-    )
-  except AttributeError as e:
-    renderables.append(
-        panel.Panel(
-            f"[yellow]WARNING: AttributeError: {e}. Please check if the"
-            " latest libtpu is used.[/]",
-            title="[b]TensorCore Status[/b]",
-            border_style="yellow",
-        )
-    )
-  except RuntimeError as e:
-    renderables.append(
-        panel.Panel(
-            f"[yellow]WARNING: RuntimeError: {e}. Please check if the latest"
-            " vbar control agent is used.[/]",
-            title="[b]TensorCore Status[/b]",
-            border_style="yellow",
-        )
-    )
-  else:
-    for i in range(len(tensorcore_util_data)):
-      tc_data = f"{tensorcore_util_data[i]}%"
-      table.add_row(
-          str(i),
-          tc_data,
-      )
-    renderables.append(table)
+  renderables.append(cli_helper.TensorCoreUtilizationTable().render())
 
   table = rich_table.Table(
       title="TPU Buffer Transfer Latency", title_justify="left"

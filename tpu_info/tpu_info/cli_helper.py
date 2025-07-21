@@ -208,7 +208,6 @@ class TpuRuntimeUtilizationTable:
             else "",
         )
     else:
-      # device_usage is a panel with an error message
       renderables.append(device_usage)
       for device_id in range(count):
         table.add_row(
@@ -219,3 +218,61 @@ class TpuRuntimeUtilizationTable:
 
     renderables.append(table)
     return renderables
+
+
+class TensorCoreUtilizationTable:
+  """Renders a table with TensorCore utilization metrics."""
+
+  def render(self) -> console.RenderableType:
+    """Creates a Rich Table or Panel for TensorCore utilization."""
+    try:
+      # pylint: disable=g-import-not-at-top
+      from libtpu import sdk  # pytype: disable=import-error
+
+      monitoring_module = None
+      if hasattr(sdk, "tpumonitoring"):
+        monitoring_module = sdk.tpumonitoring
+      elif hasattr(sdk, "monitoring"):
+        monitoring_module = sdk.monitoring
+      if monitoring_module:
+        tensorcore_util_data = monitoring_module.get_metric(
+            "tensorcore_util"
+        ).data()
+      else:
+        raise AttributeError(
+            "Could not find a compatible monitoring module ('tpumonitoring' or"
+            " 'monitoring') in the libtpu SDK."
+        )
+    except ImportError as e:
+      return panel.Panel(
+          f"[yellow]WARNING: ImportError: {e}. libtpu SDK not available.[/]",
+          title="[b]TensorCore Status[/b]",
+          border_style="yellow",
+      )
+    except AttributeError as e:
+      return panel.Panel(
+          f"[yellow]WARNING: AttributeError: {e}. Please check if the"
+          " latest libtpu is used.[/]",
+          title="[b]TensorCore Status[/b]",
+          border_style="yellow",
+      )
+    except RuntimeError as e:
+      return panel.Panel(
+          f"[yellow]WARNING: RuntimeError: {e}. Please check if the latest"
+          " vbar control agent is used.[/]",
+          title="[b]TensorCore Status[/b]",
+          border_style="yellow",
+      )
+
+    table = rich_table.Table(
+        title="TensorCore Utilization", title_justify="left"
+    )
+    table.add_column("Chip ID")
+    table.add_column("TensorCore Utilization", justify="right")
+
+    for i, util_data in enumerate(tensorcore_util_data):
+      table.add_row(
+          str(i),
+          f"{util_data}%",
+      )
+    return table
