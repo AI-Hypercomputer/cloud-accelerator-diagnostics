@@ -276,3 +276,56 @@ class TensorCoreUtilizationTable:
           f"{util_data}%",
       )
     return table
+
+
+class BufferTransferLatencyTable:
+  """Renders a table with buffer transfer latency metrics."""
+
+  def render(self) -> console.RenderableType:
+    """Creates a Rich Table or Panel for buffer transfer latency."""
+
+    table = rich_table.Table(
+        title="TPU Buffer Transfer Latency", title_justify="left"
+    )
+    table.add_column("Buffer Size")
+    table.add_column("P50", justify="right")
+    table.add_column("P90", justify="right")
+    table.add_column("P95", justify="right")
+    table.add_column("P999", justify="right")
+
+    try:
+      buffer_transfer_latency_distributions = (
+          metrics.get_buffer_transfer_latency()
+      )
+    except grpc.RpcError as e:
+      exception_message: str
+      exception_renderable: panel.Panel
+      if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+        exception_message = (
+            "Buffer Transfer Latency metrics unavailable. Did you start"
+            " a MULTI_SLICE workload with"
+            " `TPU_RUNTIME_METRICS_PORTS=8431,8432,8433,8434`?"
+        )
+        return panel.Panel(
+            f"[yellow]WARNING:[/yellow] {exception_message}",
+            title="[b]Buffer Transfer Latency Status[/b]",
+            border_style="yellow",
+        )
+
+      else:
+        exception_message = f"ERROR fetching buffer transfer latency: {e}"
+        return panel.Panel(
+            f"[red]{exception_message}[/red]",
+            title="[b]Buffer Transfer Latency Error[/b]",
+            border_style="red",
+        )
+
+    for distribution in buffer_transfer_latency_distributions:
+      table.add_row(
+          distribution.buffer_size,
+          f"{distribution.p50:.2f} us",
+          f"{distribution.p90:.2f} us",
+          f"{distribution.p95:.2f} us",
+          f"{distribution.p999:.2f} us",
+      )
+    return table
