@@ -48,8 +48,8 @@ def _fetch_and_render_tables(
   renderables: List[console.RenderableType] = []
 
   renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
-  renderables.append(
-      cli_helper.TpuRuntimeUtilizationTable().render(chip_type)
+  renderables.extend(
+      cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
   )
 
   table = rich_table.Table(title="TensorCore Utilization", title_justify="left")
