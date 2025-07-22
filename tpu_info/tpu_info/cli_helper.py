@@ -145,6 +145,7 @@ def get_metric_table(
   renderables: List[console.RenderableType] = []
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
+      "duty_cycle_percent": lambda: get_duty_cycle_table(chip_type, count),
   }
   renderables.extend(metric_functions[metric_name]())
   return renderables
@@ -188,6 +189,39 @@ def get_hbm_usage_table(
       table.add_row(str(device_id), "N/A")
     renderables.append(table)
 
+  return renderables
+
+
+def get_duty_cycle_table(
+    chip_type: device.TpuChip, count: int
+) -> List[console.RenderableType]:
+  """Returns a table with the duty cycle info."""
+  table = render_empty_table_with_columns(
+      "TPU Duty Cycle", ["Chip ID", "Duty Cycle (%)"]
+  )
+  renderables: List[console.RenderableType] = []
+  device_usage = get_device_usage(chip_type)
+  device_per_chip = chip_type.value.devices_per_chip
+
+  if isinstance(device_usage, List):
+    for chip in device_usage:
+      duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
+      if device_per_chip == 1 or chip.device_id % 2 == 0:
+        table.add_row(
+            str(chip.device_id // device_per_chip),
+            duty_cycle_pct,
+        )
+    renderables.append(table)
+  else:
+    # device_usage is a panel with an error message
+    renderables.append(device_usage)
+    for device_id in range(count):
+      if device_per_chip == 1 or device_id % 2 == 0:
+        table.add_row(
+            str(device_id // device_per_chip),
+            "N/A",
+        )
+    renderables.append(table)
   return renderables
 
 
