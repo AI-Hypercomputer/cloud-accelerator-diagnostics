@@ -104,6 +104,14 @@ def print_chip_info():
     console_obj.print(table)
     return
 
+  if cli_args.metric:
+    renderables = cli_helper.fetch_metric_tables(
+        cli_args.metric, chip_type, count
+    )
+    for item in renderables:
+      console_obj.print(item)
+    return
+
   if cli_args.streaming:
     if cli_args.rate <= 0:
       print("Error: Refresh rate must be positive.", file=sys.stderr)

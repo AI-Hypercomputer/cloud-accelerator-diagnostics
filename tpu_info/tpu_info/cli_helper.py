@@ -16,8 +16,8 @@
 
 import importlib.metadata
 import subprocess
-from typing import Any, List, Optional
-
+from typing import Any, Dict, List, Optional, Tuple
+from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
 import grpc
@@ -113,6 +113,84 @@ def fetch_process_table(
   return table
 
 
+def fetch_metric_tables(
+    metric_args: List[str],
+    chip_type: device.TpuChip,
+    count: int,
+) -> List[console.RenderableType]:
+  """Returns a list of metric tables."""
+  renderables: List[console.RenderableType] = []
+  try:
+    parsed_metrics = args_helper.MetricsParser.parse_metric_args(metric_args)
+  except args_helper.MetricParsingError as e:
+    exception_message = str(e)
+    exception_renderable = panel.Panel(
+        f"[red]{exception_message}[/red]",
+        title="[b]Metric Parsing Error[/b]",
+        border_style="red",
+    )
+    renderables.append(exception_renderable)
+    return renderables
+
+  for metric in parsed_metrics:
+    renderables.extend(get_metric_table(metric, chip_type, count))
+  return renderables
+
+
+def get_metric_table(
+    metric: Tuple[str, Dict[str, Any]], chip_type: device.TpuChip, count: int
+) -> List[console.RenderableType]:
+  """Returns a table with the given metric info."""
+  metric_name = metric[0]
+  renderables: List[console.RenderableType] = []
+  metric_functions = {
+      "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
+  }
+  renderables.extend(metric_functions[metric_name]())
+  return renderables
+
+
+def render_empty_table_with_columns(
+    title: str, columns: List[str]
+) -> rich_table.Table:
+  """Renders an empty table with the given columns and title."""
+  table = rich_table.Table(title=title, title_justify="left")
+  for column in columns:
+    table.add_column(column)
+  return table
+
+
+def get_hbm_usage_table(
+    chip_type: device.TpuChip, count: int
+) -> List[console.RenderableType]:
+  """Returns a table with the HBM usage info."""
+  table = render_empty_table_with_columns(
+      "TPU HBM Usage", ["Device", "HBM Usage (GiB)"]
+  )
+  renderables: List[console.RenderableType] = []
+  device_usage = get_device_usage(chip_type)
+
+  if isinstance(device_usage, List):
+    for chip in device_usage:
+      memory_usage = (
+          f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
+          f" {_bytes_to_gib(chip.total_memory):.2f} GiB"
+      )
+      table.add_row(
+          str(chip.device_id),
+          memory_usage,
+      )
+    renderables.append(table)
+  else:
+    # device_usage is a panel with an error message
+    renderables.append(device_usage)
+    for device_id in range(count):
+      table.add_row(str(device_id), "N/A")
+    renderables.append(table)
+
+  return renderables
+
+
 def get_device_usage(
     chip_type: device.TpuChip,
 ) -> List[metrics.Usage] | panel.Panel:
@@ -154,11 +232,9 @@ class TpuChipsTable:
       self, chip_type: Any, count: int
   ) -> console.RenderableType:
     """Creates a Rich Table with TPU chip information."""
-    table = rich_table.Table(title="TPU Chips", title_justify="left")
-    table.add_column("Chip")
-    table.add_column("Type")
-    table.add_column("Devices")
-    table.add_column("PID")
+    table = render_empty_table_with_columns(
+        "TPU Chips", ["Chip", "Type", "Devices", "PID"]
+    )
 
     chip_paths = [device.chip_path(chip_type, index) for index in range(count)]
     chip_owners = device.get_chip_owners()
@@ -181,12 +257,9 @@ class TpuRuntimeUtilizationTable:
     """Creates a Rich Table or Panel for TPU runtime utilization."""
     renderables: List[console.RenderableType] = []
 
-    table = rich_table.Table(
-        title="TPU Runtime Utilization", title_justify="left"
+    table = render_empty_table_with_columns(
+        "TPU Runtime Utilization", ["Device", "HBM Usage (GiB)", "Duty cycle"]
     )
-    table.add_column("Device")
-    table.add_column("HBM usage")
-    table.add_column("Duty cycle", justify="right")
     # TODO(wcromar): take alternative ports as a flag
     # print("Connected to libtpu at grpc://localhost:8431...")
 
@@ -264,11 +337,9 @@ class TensorCoreUtilizationTable:
           border_style="yellow",
       )
 
-    table = rich_table.Table(
-        title="TensorCore Utilization", title_justify="left"
+    table = render_empty_table_with_columns(
+        "TensorCore Utilization", ["Chip ID", "TensorCore Utilization"]
     )
-    table.add_column("Chip ID")
-    table.add_column("TensorCore Utilization", justify="right")
 
     for i, util_data in enumerate(tensorcore_util_data):
       table.add_row(
@@ -284,14 +355,10 @@ class BufferTransferLatencyTable:
   def render(self) -> console.RenderableType:
     """Creates a Rich Table or Panel for buffer transfer latency."""
 
-    table = rich_table.Table(
-        title="TPU Buffer Transfer Latency", title_justify="left"
+    table = render_empty_table_with_columns(
+        "TPU Buffer Transfer Latency",
+        ["Buffer Size", "P50", "P90", "P95", "P999"],
     )
-    table.add_column("Buffer Size")
-    table.add_column("P50", justify="right")
-    table.add_column("P90", justify="right")
-    table.add_column("P95", justify="right")
-    table.add_column("P999", justify="right")
 
     try:
       buffer_transfer_latency_distributions = (
