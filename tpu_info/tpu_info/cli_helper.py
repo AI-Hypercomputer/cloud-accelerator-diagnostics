@@ -146,7 +146,10 @@ def get_metric_table(
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
       "duty_cycle_percent": lambda: get_duty_cycle_table(chip_type, count),
-      "buffer_transfer_latency": lambda: [BufferTransferLatencyTable().render()],
+      "tensorcore_utilization": lambda: [TensorCoreUtilizationTable().render()],
+      "buffer_transfer_latency": lambda: [
+          BufferTransferLatencyTable().render()
+      ],
   }
   renderables.extend(metric_functions[metric_name]())
   return renderables
@@ -262,9 +265,7 @@ def get_device_usage(
 class TpuChipsTable:
   """Renders a table with TPU chip information."""
 
-  def render(
-      self, chip_type: Any, count: int
-  ) -> console.RenderableType:
+  def render(self, chip_type: Any, count: int) -> console.RenderableType:
     """Creates a Rich Table with TPU chip information."""
     table = render_empty_table_with_columns(
         "TPU Chips", ["Chip", "Type", "Devices", "PID"]
