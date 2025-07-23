@@ -146,6 +146,7 @@ def get_metric_table(
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
       "duty_cycle_percent": lambda: get_duty_cycle_table(chip_type, count),
+      "buffer_transfer_latency": lambda: [BufferTransferLatencyTable().render()],
   }
   renderables.extend(metric_functions[metric_name]())
   return renderables
@@ -223,7 +224,6 @@ def get_duty_cycle_table(
         )
     renderables.append(table)
   return renderables
-
 
 def get_device_usage(
     chip_type: device.TpuChip,
