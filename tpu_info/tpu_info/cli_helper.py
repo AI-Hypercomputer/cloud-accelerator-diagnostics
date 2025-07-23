@@ -21,9 +21,11 @@ from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
 import grpc
+from rich import align
 from rich import console
 from rich import panel
 from rich import table as rich_table
+from rich import text
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -79,6 +81,17 @@ def fetch_accelerator_type() -> str:
     return chip_type.value.name
   except Exception as e:  # pylint: disable=broad-exception-caught
     return f"unknown (unexpected error getting accelerator type: {e})"
+
+
+def get_tpu_cli_info() -> console.RenderableType:
+  """Returns the info of the libtpu version and accelerator type."""
+  libtpu_version = fetch_libtpu_version()
+  accelerator_type = fetch_accelerator_type()
+  tpu_cli_info = text.Text(
+      f"{'Libtpu version: '+ libtpu_version:<40}\n"
+      f"{'Accelerator type: '+ accelerator_type:<40}\n",
+  )
+  return align.Align.right(tpu_cli_info)
 
 
 def get_process_name(pid: int) -> Optional[str]:
@@ -227,6 +240,7 @@ def get_duty_cycle_table(
         )
     renderables.append(table)
   return renderables
+
 
 def get_device_usage(
     chip_type: device.TpuChip,

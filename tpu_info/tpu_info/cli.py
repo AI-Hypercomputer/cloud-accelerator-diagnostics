@@ -45,6 +45,7 @@ def _fetch_and_render_tables(
   """Fetches all TPU data and prepares a list of Rich Table objects for display."""
   renderables: List[console.RenderableType] = []
 
+  renderables.append(cli_helper.get_tpu_cli_info())
   renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
   renderables.extend(
       cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
