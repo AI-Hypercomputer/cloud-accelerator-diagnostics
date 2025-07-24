@@ -156,13 +156,17 @@ def get_metric_table(
   """Returns a table with the given metric info."""
   metric_name = metric[0]
   renderables: List[console.RenderableType] = []
+  transfer_latency_function = lambda: [
+      TransferLatencyTables().render(metric_name)
+  ]
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
       "duty_cycle_percent": lambda: get_duty_cycle_table(chip_type, count),
       "tensorcore_utilization": lambda: [TensorCoreUtilizationTable().render()],
-      "buffer_transfer_latency": lambda: [
-          BufferTransferLatencyTable().render()
-      ],
+      "buffer_transfer_latency": transfer_latency_function,
+      "host_to_device_transfer_latency": transfer_latency_function,
+      "device_to_host_transfer_latency": transfer_latency_function,
+      "collective_e2e_latency": transfer_latency_function,
   }
   renderables.extend(metric_functions[metric_name]())
   return renderables
@@ -398,45 +402,51 @@ class TensorCoreUtilizationTable:
     return table
 
 
-class BufferTransferLatencyTable:
-  """Renders a table with buffer transfer latency metrics."""
+class TransferLatencyTables:
+  """Renders a table with latency metrics."""
 
-  def render(self) -> console.RenderableType:
+  metric_display_name_map = {
+      "buffer_transfer_latency": "Buffer Transfer Latency",
+      "host_to_device_transfer_latency": "Host to Device Transfer Latency",
+      "device_to_host_transfer_latency": "Device to Host Transfer Latency",
+      "collective_e2e_latency": "Collective End to End Latency",
+  }
+
+  def render(self, metric_arg: str) -> console.RenderableType:
     """Creates a Rich Table or Panel for buffer transfer latency."""
 
+    metric_display_name = self.metric_display_name_map[metric_arg]
     table = render_empty_table_with_columns(
-        "TPU Buffer Transfer Latency",
+        f"TPU {metric_display_name}",
         ["Buffer Size", "P50", "P90", "P95", "P999"],
     )
 
     try:
-      buffer_transfer_latency_distributions = (
-          metrics.get_buffer_transfer_latency()
-      )
+      transfer_latency_distributions = metrics.get_transfer_latency(metric_arg)
     except grpc.RpcError as e:
       exception_message: str
       exception_renderable: panel.Panel
       if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
         exception_message = (
-            "Buffer Transfer Latency metrics unavailable. Did you start"
+            f"{metric_display_name} metrics unavailable. Did you start"
             " a MULTI_SLICE workload with"
             " `TPU_RUNTIME_METRICS_PORTS=8431,8432,8433,8434`?"
         )
         return panel.Panel(
             f"[yellow]WARNING:[/yellow] {exception_message}",
-            title="[b]Buffer Transfer Latency Status[/b]",
+            title=f"[b]{metric_display_name} Status[/b]",
             border_style="yellow",
         )
 
       else:
-        exception_message = f"ERROR fetching buffer transfer latency: {e}"
+        exception_message = f"ERROR fetching {metric_display_name}: {e}"
         return panel.Panel(
             f"[red]{exception_message}[/red]",
-            title="[b]Buffer Transfer Latency Error[/b]",
+            title=f"[b]{metric_display_name} Error[/b]",
             border_style="red",
         )
 
-    for distribution in buffer_transfer_latency_distributions:
+    for distribution in transfer_latency_distributions:
       table.add_row(
           distribution.buffer_size,
           f"{distribution.p50:.2f} us",

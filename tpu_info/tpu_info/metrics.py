@@ -35,6 +35,9 @@ class MetricName(enum.Enum):
   BUFFER_TRANSFER_LATENCY_US = (
       "megascale.dcn_transfer_latencies.microsecond.cumulative.distribution"
   )
+  HOST_TO_DEVICE_TRANSFER_LATENCY_US = "megascale.host_to_device_transfer_latencies.microsecond.cumulative.distribution"
+  DEVICE_TO_HOST_TRANSFER_LATENCY_US = "megascale.device_to_host_transfer_latencies.microsecond.cumulative.distribution"
+  COLLECTIVE_E2E_LATENCY_US = "megascale.collective_end_to_end_latencies.microsecond.cumulative.distribution"
 
 
 class Usage(typing.NamedTuple):
@@ -46,7 +49,7 @@ class Usage(typing.NamedTuple):
   duty_cycle_pct: float
 
 
-class BufferTransferLatencyDistribution(typing.NamedTuple):
+class TransferLatencyDistribution(typing.NamedTuple):
   """Distribution measurements."""
 
   buffer_size: str
@@ -56,11 +59,27 @@ class BufferTransferLatencyDistribution(typing.NamedTuple):
   p999: float
 
 
+PERCENTILE_PARAM = {"percentile": {"p50", "p90", "p95", "p999"}}
+
 VALID_METRICS_WITH_PARAMS = {
     "hbm_usage": None,
     "duty_cycle_percent": None,
     "tensorcore_utilization": None,
-    "buffer_transfer_latency": {"percentile": {"p50", "p90", "p95", "p999"}},
+    "buffer_transfer_latency": PERCENTILE_PARAM,
+    "host_to_device_transfer_latency": PERCENTILE_PARAM,
+    "device_to_host_transfer_latency": PERCENTILE_PARAM,
+    "collective_e2e_latency": PERCENTILE_PARAM,
+}
+
+LIBTPU_METRIC_MAP = {
+    "buffer_transfer_latency": MetricName.BUFFER_TRANSFER_LATENCY_US.value,
+    "host_to_device_transfer_latency": (
+        MetricName.HOST_TO_DEVICE_TRANSFER_LATENCY_US.value
+    ),
+    "device_to_host_transfer_latency": (
+        MetricName.DEVICE_TO_HOST_TRANSFER_LATENCY_US.value
+    ),
+    "collective_e2e_latency": MetricName.COLLECTIVE_E2E_LATENCY_US.value,
 }
 
 
@@ -134,27 +153,28 @@ def _get_percentile(
   return 1
 
 
-def get_buffer_transfer_latency(
+def get_transfer_latency(
+    metric_arg: str,
     addr: str = "localhost:8431",
-) -> List[BufferTransferLatencyDistribution]:
-  """Gets buffer transfer latency statistics for all attached TPU devices.
+) -> List[TransferLatencyDistribution]:
+  """Gets latency statistics for all attached TPU devices based on the metric name.
 
   Args:
+    metric_arg: Metric name to fetch.
     addr: GRPC address of libtpu metrics server.
 
   Returns:
-    List of buffer transfer latency statistics for each TPU device.
+    List of latency statistics for each TPU device.
   """
   channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
   client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
 
+  metric_name = LIBTPU_METRIC_MAP[metric_arg]
   resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
-      tpu_metrics.MetricRequest(
-          metric_name=MetricName.BUFFER_TRANSFER_LATENCY_US.value
-      )
+      tpu_metrics.MetricRequest(metric_name=metric_name)
   )
 
-  buffer_transfer_latency_distributions = []
+  latency_distributions = []
 
   for metric in resp.metric.metrics:
     attribute = metric.attribute
@@ -176,8 +196,8 @@ def get_buffer_transfer_latency(
     p95 = _get_percentile(p95_count, count, bucket, scale, growth_factor)
     p999 = _get_percentile(p999_count, count, bucket, scale, growth_factor)
 
-    buffer_transfer_latency_distributions.append(
-        BufferTransferLatencyDistribution(
+    latency_distributions.append(
+        TransferLatencyDistribution(
             attribute.value.kvlist_attr.attributes[0].value.string_attr,
             p50,
             p90,
@@ -186,4 +206,4 @@ def get_buffer_transfer_latency(
         )
     )
 
-  return buffer_transfer_latency_distributions
+  return latency_distributions

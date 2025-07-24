@@ -52,7 +52,9 @@ def _fetch_and_render_tables(
       cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
   )
   renderables.append(cli_helper.TensorCoreUtilizationTable().render())
-  renderables.append(cli_helper.BufferTransferLatencyTable().render())
+  renderables.append(
+      cli_helper.TransferLatencyTables().render("buffer_transfer_latency")
+  )
 
   return renderables
 

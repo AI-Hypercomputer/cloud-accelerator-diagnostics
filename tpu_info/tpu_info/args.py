@@ -64,7 +64,13 @@ def parse_arguments():
           " memory usage/ total memoery for each device.\n- duty_cycle_percent:"
           " Duty cycle percentage for each chip.\n- tensorcore_utilization: "
           " Current percentage of the Tensorcore that is utilized per chip.\n-"
-          " buffer_transfer_latency: The buffer transfer latency distribution."
+          " buffer_transfer_latency: The buffer transfer latency"
+          " distribution.\n- host_to_device_transfer_latency: The host to"
+          " device transfer latency distribution.\n-"
+          " device_to_host_transfer_latency: The device to host transfer"
+          " latency distribution.\n- collective_e2e_latency: The cumulative"
+          " distribution of end to end collective latency for multislice"
+          " traffic."
       ),
   )
   return parser.parse_args()
