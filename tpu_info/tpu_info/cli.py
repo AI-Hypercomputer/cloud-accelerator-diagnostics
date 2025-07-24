@@ -27,6 +27,7 @@ from tpu_info import cli_helper
 from tpu_info import device
 from tpu_info import metrics
 import rich
+from rich import align
 from rich import console
 from rich import live
 from rich import panel
@@ -56,17 +57,15 @@ def _fetch_and_render_tables(
   return renderables
 
 
-def _get_runtime_info(rate: float) -> text.Text:
+def _get_runtime_info(rate: float) -> align.Align:
   """Returns a Rich Text with runtime info for the streaming mode."""
-  current_ts = time.time()
-  last_updated_time_str = datetime.datetime.fromtimestamp(current_ts).strftime(
-      "%Y-%m-%d %H:%M:%S"
+  utc_time = datetime.datetime.now(datetime.timezone.utc)
+  last_updated_time_str = utc_time.strftime("%Y-%m-%d %H:%M:%S %Z")
+  status_text = text.Text(
+      f"{'Refresh rate: '+ str(rate)+'s':<42}\n"
+      f"{'Last update: ' + last_updated_time_str:<42}"
   )
-  runtime_status = text.Text(
-      f"\nRefresh rate: {rate}s\nLast update: {last_updated_time_str}",
-      justify="right",
-  )
-  return runtime_status
+  return align.Align.right(status_text)
 
 
 def print_chip_info():
