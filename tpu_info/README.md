@@ -24,16 +24,14 @@ with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.4.0
+## What's New in Version 0.5.0
 
 🚀 **New Features**
 
-* **Streaming Mode**: Introduced a live streaming mode using the `--streaming` flag for continuous monitoring.
-* **Version Flag**: Added `--version` (and `-v`) flags to easily check the tool's installed version.
-
-🐛 **Bug Fixes & Compatibility**
-
-* `tpu-info` is now more robust and avoids crashes by maintaining backward compatibility with different versions of the underlying `libtpu` library.
+* `tpu-info` now supports **single metric query** mode with the `metric` flag.
+* The `version` flag now includes the libtpu version and the accelerator type of the TPU chip.
+* Introduced a `process` flag to display information about processes currently running on the TPU.
+* Introduced a `list_metrics` flag to display all the supported metrics.
 
 ***
 
@@ -80,6 +78,8 @@ Run the following command for a one-time snapshot of the current metrics.
 
 ```bash
 $ tpu-info
+                                           Libtpu version: 0.0.19.dev20250721+nightly
+                                           Accelerator type: v6e
 TPU Chips
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
 ┃ Chip         ┃ Type         ┃ Devices ┃ PID    ┃
@@ -126,7 +126,9 @@ tpu-info --streaming --rate 2
 ```
 ```
                                   Refresh rate: 0.1s
-                                  Last update: 2025-06-30 02:36:14
+                                  Last update: 2025-07-24 11:00:59 UTC
+                                  Libtpu version: 0.0.19.dev20250721+nightly
+                                  Accelerator type: v6e
 
 TPU Chips
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━┓
@@ -165,11 +167,85 @@ TPU Buffer Transfer Latency
 
 ### Version
 
-To check the installed version of `tpu-info`, use the `--version` or `-v` flag.
+To check the installed version of `tpu-info`, libtpu version and accelerator type of the TPU chip, use the `--version` or `-v` flag.
 
 ```bash
 $ tpu-info --version
-tpu-info version: 0.4.0
+- tpu-info version: 0.5.0
+- libtpu version: 0.0.18
+- accelerator type: v6e
+```
+
+### Process
+
+You can use the `--process` or `-p` flag to display information about the processes currently running on the TPU.
+
+```bash
+$ tpu-info --process
+TPU Process Info
+┏━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ Chip        ┃ PID    ┃ Process Name ┃
+┡━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ /dev/vfio/0 │ 799657 │ python3      │
+│ /dev/vfio/1 │ 799657 │ python3      │
+│ /dev/vfio/2 │ 799657 │ python3      │
+│ /dev/vfio/3 │ 799657 │ python3      │
+│ /dev/vfio/4 │ 799657 │ python3      │
+│ /dev/vfio/5 │ 799657 │ python3      │
+│ /dev/vfio/6 │ 799657 │ python3      │
+│ /dev/vfio/7 │ 799657 │ python3      │
+└─────────────┴────────┴──────────────┘
+```
+
+### Metric
+
+You can use the `--metric` flag to display specific metrics. You can specify multiple metrics separated by spaces. Supported metrics are: `hbm_usage`, `duty_cycle_percent`, `tensorcore_utilization`, `buffer_transfer_latency`, `host_to_device_transfer_latency`, `device_to_host_transfer_latency` and `collective_e2e_latency`.
+
+```bash
+$ tpu-info --metric duty_cycle_percent hbm_usage
+TPU Duty Cycle
+┏━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ Chip ID ┃ Duty Cycle (%) ┃
+┡━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ 0       │ 100.00%        │
+│ 1       │ 100.00%        │
+│ 2       │ 100.00%        │
+│ 3       │ 100.00%        │
+│ 4       │ 100.00%        │
+│ 5       │ 100.00%        │
+│ 6       │ 100.00%        │
+│ 7       │ 100.00%        │
+└─────────┴────────────────┘
+TPU HBM Usage
+┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Device ┃ HBM Usage (GiB)       ┃
+┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 0      │ 29.50 GiB / 31.25 GiB │
+│ 1      │ 21.50 GiB / 31.25 GiB │
+│ 2      │ 21.50 GiB / 31.25 GiB │
+│ 3      │ 21.50 GiB / 31.25 GiB │
+│ 4      │ 21.50 GiB / 31.25 GiB │
+│ 5      │ 21.50 GiB / 31.25 GiB │
+│ 6      │ 21.50 GiB / 31.25 GiB │
+│ 7      │ 21.50 GiB / 31.25 GiB │
+└────────┴───────────────────────┘
+```
+
+### List Metrics
+
+You can use the `--list_metrics` flag to display all supported metrics that can be given along with the `--metric` flag.
+
+```bash
+$ tpu-info --list_metrics
+╭─ Supported Metrics ─────────────────────────────────────────────────────────────────────────────╮
+│         hbm_usage                                                                               │
+│         duty_cycle_percent                                                                      │
+│         tensorcore_utilization                                                                  │
+│         buffer_transfer_latency                                                                 │
+│         host_to_device_transfer_latency                                                         │
+│         device_to_host_transfer_latency                                                         │
+│         collective_e2e_latency                                                                  │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 [^1]: Releases from before 2024 may not be compatible.
