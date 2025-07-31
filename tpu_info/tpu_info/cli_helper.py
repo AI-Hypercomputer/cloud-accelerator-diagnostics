@@ -16,7 +16,9 @@
 
 import importlib.metadata
 import subprocess
+import sys
 from typing import Any, Dict, List, Optional, Tuple
+
 from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
@@ -31,6 +33,38 @@ from rich import text
 def _bytes_to_gib(size: int) -> float:
   """Converts bytes to gibibytes."""
   return size / (1 << 30)
+
+
+def is_incompatible_python_version() -> bool:
+  """Checks if the current Python version is 3.12 or newer."""
+  if sys.version_info < (3, 12):
+    return False
+  try:
+    from packaging.version import parse as parse_version
+    import libtpu  # pytype: disable=import-error
+
+    first_compatible_version = parse_version("3.20")
+    current_version = parse_version(libtpu.__version__)
+    if current_version < first_compatible_version:
+      return True
+    else:
+      return False
+  except (ImportError, AttributeError):
+    return True
+
+
+def get_py_compat_warning_panel() -> panel.Panel:
+  """Returns a Rich Panel with a Python compatibility warning."""
+  warning_text = (
+      "Some features are disabled due to an incompatibility between the libtpu"
+      " SDK and Python 3.12+.\n\nFor full functionality, please use a"
+      " different Python environment."
+  )
+  return panel.Panel(
+      f"[yellow]{warning_text}[/yellow]",
+      title="[bold yellow]Compatibility Warning[/bold yellow]",
+      border_style="yellow",
+  )
 
 
 def fetch_cli_version() -> str:

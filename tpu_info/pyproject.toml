@@ -24,6 +24,7 @@ dependencies = [
   "grpcio>=1.65.5",
   "protobuf",
   "rich",
+  "packaging",
 ]
 authors = [
   { name="Cloud TPU Team", email="cloud-tpu-eng@google.com" },

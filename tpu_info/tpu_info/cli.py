@@ -73,14 +73,22 @@ def _get_runtime_info(rate: float) -> align.Align:
 def print_chip_info():
   """Print local TPU devices and libtpu runtime metrics."""
   cli_args = args.parse_arguments()
+  console_obj = console.Console()
+  is_incompatible = cli_helper.is_incompatible_python_version()
+  if is_incompatible:
+    console_obj.print(cli_helper.get_py_compat_warning_panel())
+
   if cli_args.version:
     print(f"- tpu-info version: {cli_helper.fetch_cli_version()}")
-    print(f"- libtpu version: {cli_helper.fetch_libtpu_version()}")
-    print(f"- accelerator type: {cli_helper.fetch_accelerator_type()}")
+    if is_incompatible:
+      print("- libtpu version: N/A (incompatible environment)")
+      print("- accelerator type: N/A (incompatible environment)")
+    else:
+      print(f"- libtpu version: {cli_helper.fetch_libtpu_version()}")
+      print(f"- accelerator type: {cli_helper.fetch_accelerator_type()}")
     return
 
   if cli_args.list_metrics:
-    console_obj = console.Console()
     console_obj.print(
         panel.Panel(
             "\n".join(
@@ -93,13 +101,14 @@ def print_chip_info():
     )
     return
 
+  if is_incompatible:
+    return
+
   # TODO(wcromar): Merge all of this info into one table
   chip_type, count = device.get_local_chips()
   if not chip_type:
     print("No TPU chips found.")
     return
-
-  console_obj = console.Console()
 
   if cli_args.process:
     table = cli_helper.fetch_process_table(chip_type, count)
