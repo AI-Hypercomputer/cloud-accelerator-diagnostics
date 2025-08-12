@@ -16,15 +16,24 @@
 # `tpu-info` CLI
 
 `tpu-info` is a simple CLI tool for detecting Cloud TPU devices and reading
-runtime metrics from `libtpu`, including memory usage and duty cycle. It supports both a static, one-time snapshot and a live streaming mode to monitor metrics continuously.
+runtime metrics from `libtpu`, including memory usage and duty cycle. It
+supports both a static, one-time snapshot and a live streaming mode to monitor
+metrics continuously.
 
-**Note**: to access `libtpu` utilization metrics, you must have a workload running
-with a supported ML framework, such as JAX or PyTorch/XLA. See the
+**Note**: to access `libtpu` utilization metrics, you must have a workload
+running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 [Usage](#usage) section for more information.
 
 ***
 
-## What's New in Version 0.5.0
+## What's New in Version 0.5.1
+
+✨ **Enhancements**
+
+* **Python 3.12+ Compatibility**: Now gracefully handles incompatible Python
+  environments. The tool displays a warning and disables `libtpu`-dependent
+  features to prevent crashing. The `--version` command will show "N/A" for the
+  `libtpu` version in this state.
 
 🚀 **New Features**
 
@@ -118,7 +127,8 @@ TPU Buffer Transfer Latency
 
 ### Streaming Mode
 
-You can run `tpu-info` in a streaming mode to periodically refresh and display the utilization statistics.
+You can run `tpu-info` in a streaming mode to periodically refresh and display
+the utilization statistics.
 
 ```bash
 # Refresh stats every 2 seconds
@@ -167,18 +177,29 @@ TPU Buffer Transfer Latency
 
 ### Version
 
-To check the installed version of `tpu-info`, libtpu version and accelerator type of the TPU chip, use the `--version` or `-v` flag.
+To check the installed version of `tpu-info`, libtpu version and accelerator
+type of the TPU chip, use the `--version` or `-v` flag.
 
+##### Compatible Environment:
 ```bash
 $ tpu-info --version
-- tpu-info version: 0.5.0
+- tpu-info version: 0.5.1
 - libtpu version: 0.0.18
 - accelerator type: v6e
 ```
 
+##### Incompatible Environment (Python 3.12+):
+```bash
+$ tpu-info --version
+- tpu-info version: 0.5.1
+- libtpu version: N/A (incompatible environment)
+- accelerator type: N/A (incompatible environment)
+```
+
 ### Process
 
-You can use the `--process` or `-p` flag to display information about the processes currently running on the TPU.
+You can use the `--process` or `-p` flag to display information about the
+processes currently running on the TPU.
 
 ```bash
 $ tpu-info --process
@@ -199,7 +220,11 @@ TPU Process Info
 
 ### Metric
 
-You can use the `--metric` flag to display specific metrics. You can specify multiple metrics separated by spaces. Supported metrics are: `hbm_usage`, `duty_cycle_percent`, `tensorcore_utilization`, `buffer_transfer_latency`, `host_to_device_transfer_latency`, `device_to_host_transfer_latency` and `collective_e2e_latency`.
+You can use the `--metric` flag to display specific metrics. You can specify
+multiple metrics separated by spaces. Supported metrics are: `hbm_usage`,
+`duty_cycle_percent`, `tensorcore_utilization`, `buffer_transfer_latency`,
+`host_to_device_transfer_latency`, `device_to_host_transfer_latency` and
+`collective_e2e_latency`.
 
 ```bash
 $ tpu-info --metric duty_cycle_percent hbm_usage
@@ -233,7 +258,8 @@ TPU HBM Usage
 
 ### List Metrics
 
-You can use the `--list_metrics` flag to display all supported metrics that can be given along with the `--metric` flag.
+You can use the `--list_metrics` flag to display all supported metrics that can
+be given along with the `--metric` flag.
 
 ```bash
 $ tpu-info --list_metrics
