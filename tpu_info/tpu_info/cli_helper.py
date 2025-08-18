@@ -23,6 +23,14 @@ from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
 import grpc
+try:
+  # pylint: disable=g-import-not-at-top
+  import libtpu  # pytype: disable=import-error
+  from libtpu import sdk as libtpu_sdk  # pytype: disable=import-error
+except ImportError:
+  libtpu = None
+  libtpu_sdk = None
+from packaging.version import parse as parse_version
 from rich import align
 from rich import console
 from rich import panel
@@ -40,8 +48,8 @@ def is_incompatible_python_version() -> bool:
   if sys.version_info < (3, 12):
     return False
   try:
-    from packaging.version import parse as parse_version
-    import libtpu  # pytype: disable=import-error
+    if libtpu is None:
+      return True
 
     first_compatible_version = parse_version("3.20")
     current_version = parse_version(libtpu.__version__)
@@ -79,11 +87,11 @@ def fetch_cli_version() -> str:
 def fetch_libtpu_version() -> str:
   """Returns the version of the current libtpu."""
   try:
-    # pylint: disable=g-import-not-at-top
-    import libtpu  # pytype: disable=import-error
-
-    version = libtpu.__version__
-    return version
+    if libtpu is not None:
+      version = libtpu.__version__
+      return version
+    else:
+      raise ImportError("libtpu not imported")
   except Exception:  # pylint: disable=broad-exception-caught
     try:
       result = subprocess.run(
@@ -196,7 +204,9 @@ def get_metric_table(
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
       "duty_cycle_percent": lambda: get_duty_cycle_table(chip_type, count),
-      "tensorcore_utilization": lambda: [TensorCoreUtilizationTable().render()],
+      "tensorcore_utilization": lambda: [
+          TensorCoreUtilizationTable().render(count)
+      ],
       "buffer_transfer_latency": transfer_latency_function,
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
@@ -383,11 +393,12 @@ class TpuRuntimeUtilizationTable:
 class TensorCoreUtilizationTable:
   """Renders a table with TensorCore utilization metrics."""
 
-  def render(self) -> console.RenderableType:
+  def render(self, count: int) -> console.RenderableType:
     """Creates a Rich Table or Panel for TensorCore utilization."""
     try:
-      # pylint: disable=g-import-not-at-top
-      from libtpu import sdk  # pytype: disable=import-error
+      if libtpu_sdk is None:
+        raise ImportError("libtpu.sdk not available")
+      sdk = libtpu_sdk
 
       monitoring_module = None
       if hasattr(sdk, "tpumonitoring"):
@@ -417,22 +428,34 @@ class TensorCoreUtilizationTable:
           border_style="yellow",
       )
     except RuntimeError as e:
-      return panel.Panel(
-          f"[yellow]WARNING: RuntimeError: {e}. Please check if the latest"
-          " vbar control agent is used.[/]",
-          title="[b]TensorCore Status[/b]",
-          border_style="yellow",
+      table = render_empty_table_with_columns(
+          "TensorCore Utilization", ["Chip ID", "TensorCore Utilization"]
+      )
+      for i in range(count):
+        table.add_row(str(i), "N/A")
+      return console.Group(
+          panel.Panel(
+              f"[yellow]WARNING: RuntimeError: {e}. Please check if the latest"
+              " vbar control agent is used.[/]",
+              title="[b]TensorCore Status[/b]",
+              border_style="yellow",
+          ),
+          table,
       )
 
     table = render_empty_table_with_columns(
         "TensorCore Utilization", ["Chip ID", "TensorCore Utilization"]
     )
+    if tensorcore_util_data:
+      for i, util_data in enumerate(tensorcore_util_data):
+        table.add_row(
+            str(i),
+            f"{util_data}%",
+        )
+    else:
+      for i in range(count):
+        table.add_row(str(i), "N/A")
 
-    for i, util_data in enumerate(tensorcore_util_data):
-      table.add_row(
-          str(i),
-          f"{util_data}%",
-      )
     return table
 
 

@@ -38,8 +38,6 @@ from rich import text
 MIN_REFRESH_RATE_SECONDS = 1.0 / 30
 
 
-# TODO(vidishasethi): b/418938764 - Modularize by extracting
-#  each table's rendering logic into its own dedicated helper function.
 def _fetch_and_render_tables(
     chip_type: Any, count: int
 ) -> List[console.RenderableType]:
@@ -51,7 +49,7 @@ def _fetch_and_render_tables(
   renderables.extend(
       cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
   )
-  renderables.append(cli_helper.TensorCoreUtilizationTable().render())
+  renderables.append(cli_helper.TensorCoreUtilizationTable().render(count))
   renderables.append(
       cli_helper.TransferLatencyTables().render("buffer_transfer_latency")
   )
