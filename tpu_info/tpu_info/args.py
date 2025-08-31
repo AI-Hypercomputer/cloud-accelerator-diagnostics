@@ -15,6 +15,51 @@
 """Argument parsing for the tpu-info tool."""
 
 import argparse
+import dataclasses
+from typing import Optional
+
+
+@dataclasses.dataclass
+class MetricRequest:
+  """Represents a user's request for a single metric from the CLI.
+
+  This class is used by the argument parser to create a link
+  between a `--metric` flag and its associated filter string
+  from a `-f` flag. A list of these objects is the final output of
+  the `parse_arguments()` function, which is then passed on for validation
+  and processing.
+  """
+
+  name: str
+  filter_str: Optional[str] = None
+
+
+class _MetricAndFilterAction(argparse.Action):
+  """Custom action to associate --metric and --filter flags."""
+
+  def __call__(self, parser, namespace, values, option_string=None):
+    # Initialize the list on first use.
+    if (
+        not hasattr(namespace, self.dest)
+        or getattr(namespace, self.dest) is None
+    ):
+      setattr(namespace, self.dest, [])
+
+    metrics_list = getattr(namespace, self.dest)
+
+    if option_string == "--metric":
+      metrics_list.append(MetricRequest(name=values))
+    elif option_string in ("-f", "--filter"):
+      if not metrics_list:
+        raise argparse.ArgumentError(
+            self, f"{option_string} must be used after --metric."
+        )
+      last_metric = metrics_list[-1]
+      if last_metric.filter_str is not None:
+        raise argparse.ArgumentError(
+            self, f"Only one filter is allowed per metric ({last_metric.name})."
+        )
+      last_metric.filter_str = values
 
 
 def parse_arguments():
@@ -58,19 +103,20 @@ def parse_arguments():
   )
   parser.add_argument(
       "--metric",
-      nargs="+",
+      action=_MetricAndFilterAction,
       help=(
-          "Metric to display. Supported metrics:\n- hbm_usage: High bandwidth"
-          " memory usage/ total memoery for each device.\n- duty_cycle_percent:"
-          " Duty cycle percentage for each chip.\n- tensorcore_utilization: "
-          " Current percentage of the Tensorcore that is utilized per chip.\n-"
-          " buffer_transfer_latency: The buffer transfer latency"
-          " distribution.\n- host_to_device_transfer_latency: The host to"
-          " device transfer latency distribution.\n-"
-          " device_to_host_transfer_latency: The device to host transfer"
-          " latency distribution.\n- collective_e2e_latency: The cumulative"
-          " distribution of end to end collective latency for multislice"
-          " traffic."
+          "Metric to display. Can be specified multiple times. Use"
+          " --list_metrics to see all supported metrics."
+      ),
+  )
+  parser.add_argument(
+      "-f",
+      "--filter",
+      dest="metric",
+      action=_MetricAndFilterAction,
+      help=(
+          "An optional filter string for the preceding --metric flag. Example:"
+          " -f 'percentile:[p50,p90], core_type:tensorcore'"
       ),
   )
   return parser.parse_args()

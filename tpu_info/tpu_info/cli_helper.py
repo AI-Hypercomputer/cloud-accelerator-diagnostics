@@ -19,6 +19,7 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
+from tpu_info import args
 from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
@@ -169,14 +170,16 @@ def fetch_process_table(
 
 
 def fetch_metric_tables(
-    metric_args: List[str],
+    metric_args: List[args.MetricRequest],
     chip_type: device.TpuChip,
     count: int,
 ) -> List[console.RenderableType]:
   """Returns a list of metric tables."""
   renderables: List[console.RenderableType] = []
   try:
-    parsed_metrics = args_helper.MetricsParser.parse_metric_args(metric_args)
+    # TODO: b/430450556 - Pass the full metric object to the parser.
+    metric_names = [m.name for m in metric_args]
+    parsed_metrics = args_helper.MetricsParser.parse_metric_args(metric_names)
   except args_helper.MetricParsingError as e:
     exception_message = str(e)
     exception_renderable = panel.Panel(
