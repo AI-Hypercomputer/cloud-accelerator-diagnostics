@@ -19,7 +19,6 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from tpu_info import args
 from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
@@ -170,27 +169,13 @@ def fetch_process_table(
 
 
 def fetch_metric_tables(
-    metric_args: List[args.MetricRequest],
+    validated_metrics: List[Tuple[str, Optional[Dict[str, Any]]]],
     chip_type: device.TpuChip,
     count: int,
 ) -> List[console.RenderableType]:
   """Returns a list of metric tables."""
   renderables: List[console.RenderableType] = []
-  try:
-    # TODO: b/430450556 - Pass the full metric object to the parser.
-    metric_names = [m.name for m in metric_args]
-    parsed_metrics = args_helper.MetricsParser.parse_metric_args(metric_names)
-  except args_helper.MetricParsingError as e:
-    exception_message = str(e)
-    exception_renderable = panel.Panel(
-        f"[red]{exception_message}[/red]",
-        title="[b]Metric Parsing Error[/b]",
-        border_style="red",
-    )
-    renderables.append(exception_renderable)
-    return renderables
-
-  for metric in parsed_metrics:
+  for metric in validated_metrics:
     renderables.extend(get_metric_table(metric, chip_type, count))
   return renderables
 
@@ -199,10 +184,10 @@ def get_metric_table(
     metric: Tuple[str, Dict[str, Any]], chip_type: device.TpuChip, count: int
 ) -> List[console.RenderableType]:
   """Returns a table with the given metric info."""
-  metric_name = metric[0]
+  metric_name, metric_filters = metric
   renderables: List[console.RenderableType] = []
   transfer_latency_function = lambda: [
-      TransferLatencyTables().render(metric_name)
+      TransferLatencyTables().render(metric_name, metric_filters)
   ]
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
@@ -472,13 +457,21 @@ class TransferLatencyTables:
       "collective_e2e_latency": "Collective End to End Latency",
   }
 
-  def render(self, metric_arg: str) -> console.RenderableType:
+  def render(
+      self, metric_arg: str, filters: Optional[Dict[str, Any]] = None
+  ) -> console.RenderableType:
     """Creates a Rich Table or Panel for buffer transfer latency."""
 
     metric_display_name = self.metric_display_name_map[metric_arg]
+    percentiles_to_show = ["p50", "p90", "p95", "p999"]
+    if filters and "percentile" in filters:
+      percentiles_to_show = filters["percentile"]
+
+    columns = ["Buffer Size"]
+    columns.extend([p.upper() for p in percentiles_to_show])
     table = render_empty_table_with_columns(
         f"TPU {metric_display_name}",
-        ["Buffer Size", "P50", "P90", "P95", "P999"],
+        columns,
     )
 
     try:
@@ -507,11 +500,8 @@ class TransferLatencyTables:
         )
 
     for distribution in transfer_latency_distributions:
-      table.add_row(
-          distribution.buffer_size,
-          f"{distribution.p50:.2f} us",
-          f"{distribution.p90:.2f} us",
-          f"{distribution.p95:.2f} us",
-          f"{distribution.p999:.2f} us",
-      )
+      row = [distribution.buffer_size]
+      for p in percentiles_to_show:
+        row.append(f"{getattr(distribution, p):.2f} us")
+      table.add_row(*row)
     return table

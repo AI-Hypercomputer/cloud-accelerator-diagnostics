@@ -59,16 +59,24 @@ class TransferLatencyDistribution(typing.NamedTuple):
   p999: float
 
 
-PERCENTILE_PARAM = {"percentile": {"p50", "p90", "p95", "p999"}}
+# A schema defining the allowed filter keys for each metric.
+# The value is a set of valid filter keys.
+METRIC_FILTER_SCHEMA = {
+    "buffer_transfer_latency": {"percentile"},
+    "host_to_device_transfer_latency": {"percentile"},
+    "device_to_host_transfer_latency": {"percentile"},
+    "collective_e2e_latency": {"percentile"},
+}
 
-VALID_METRICS_WITH_PARAMS = {
-    "hbm_usage": None,
-    "duty_cycle_percent": None,
-    "tensorcore_utilization": None,
-    "buffer_transfer_latency": PERCENTILE_PARAM,
-    "host_to_device_transfer_latency": PERCENTILE_PARAM,
-    "device_to_host_transfer_latency": PERCENTILE_PARAM,
-    "collective_e2e_latency": PERCENTILE_PARAM,
+# A set of all valid metric names for quick lookup.
+VALID_METRICS = {
+    "hbm_usage",
+    "duty_cycle_percent",
+    "tensorcore_utilization",
+    "buffer_transfer_latency",
+    "host_to_device_transfer_latency",
+    "device_to_host_transfer_latency",
+    "collective_e2e_latency",
 }
 
 LIBTPU_METRIC_MAP = {

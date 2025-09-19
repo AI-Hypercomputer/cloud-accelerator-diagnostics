@@ -23,6 +23,7 @@ import time
 from typing import Any, List
 
 from tpu_info import args
+from tpu_info import args_helper
 from tpu_info import cli_helper
 from tpu_info import device
 from tpu_info import metrics
@@ -91,7 +92,7 @@ def print_chip_info():
         panel.Panel(
             "\n".join(
                 f"\t{metric}"
-                for metric in metrics.VALID_METRICS_WITH_PARAMS.keys()
+                for metric in metrics.VALID_METRICS
             ),
             title="[b]Supported Metrics[/b]",
             title_align="left",
@@ -114,12 +115,25 @@ def print_chip_info():
     return
 
   if cli_args.metric:
-    renderables = cli_helper.fetch_metric_tables(
-        cli_args.metric, chip_type, count
-    )
-    for item in renderables:
-      console_obj.print(item)
+    try:
+      validated_metrics = args_helper.MetricsParser.parse_metric_args(
+          cli_args.metric
+      )
+      renderables = cli_helper.fetch_metric_tables(
+          validated_metrics, chip_type, count
+      )
+      for item in renderables:
+        console_obj.print(item)
+    except args_helper.MetricParsingError as e:
+      console_obj.print(
+          panel.Panel(
+              f"[red]{e}[/red]",
+              title="[b]Metric Parsing Error[/b]",
+              border_style="red",
+          )
+      )
     return
+
 
   if cli_args.streaming:
     if cli_args.rate <= 0:

@@ -14,7 +14,9 @@
 
 """Helper functions for args.py."""
 
+import re
 from typing import Any, Dict, List, Optional, Tuple
+from tpu_info import args
 from tpu_info import metrics
 
 
@@ -25,25 +27,82 @@ class MetricParsingError(Exception):
     super().__init__(message)
 
 
+def _parse_filter_str(filter_str: str) -> Dict[str, Any]:
+  """Parses a raw filter string (e.g., 'key:value, list_key:[v1,v2]') into a dictionary.
+
+  This function handles simple key-value pairs and list values enclosed in
+  square brackets.
+
+  Args:
+    filter_str: The raw filter string from the command line.
+
+  Returns:
+    A dictionary representing the parsed filter.
+  """
+  parsed_filter = {}
+  # This regex splits the string by commas, but ignores commas that are inside
+  # square brackets. It uses a negative lookahead `(?!...)` to assert that a
+  # comma is not followed by a sequence of non-'[' characters and then a ']'.
+  pairs = re.split(r",(?![^[]*\])", filter_str)
+  for pair in pairs:
+    if ":" not in pair:
+      raise MetricParsingError(f"Invalid filter pair: {pair}")
+    key, value = [p.strip() for p in pair.split(":", 1)]
+    if not key:
+      raise MetricParsingError("Filter key cannot be empty.")
+
+    # Handle list values (e.g., [p50,p90])
+    if value.startswith("[") and value.endswith("]"):
+      parsed_filter[key] = [v.strip() for v in value[1:-1].split(",")]
+    elif value.startswith("[") and not value.endswith("]"):
+      raise MetricParsingError(f"Unbalanced brackets in filter: {value}")
+    else:
+      parsed_filter[key] = value
+  return parsed_filter
+
+
 class MetricsParser:
   """Class for parsing metric arguments."""
 
   @classmethod
   def parse_metric_args(
       cls,
-      metric_args: List[str],
+      metric_args: List[args.MetricRequest],
   ) -> List[Tuple[str, Optional[Dict[str, Any]]]]:
-    """Parses metric arguments into list of tuples (metric_name, {param:val param:val})."""
-    # TODO: b/430450556 - Add support for metric with parameters.
-    # This function currently considers all metrics as having no parameters.
+    """Parses and validates metric arguments."""
     parsed_metrics = []
-
-    for arg in metric_args:
-      if arg not in metrics.VALID_METRICS_WITH_PARAMS:
+    for metric in metric_args:
+      if metric.name not in metrics.VALID_METRICS:
         raise MetricParsingError(
-            f"ERROR: Invalid metric '{arg}'. "
+            f"ERROR: Invalid metric '{metric.name}'. "
             "Use '--list_metrics' to view all supported metrics."
         )
-      parsed_metrics.append((arg, None))
+
+      if not metric.filter_str:
+        parsed_metrics.append((metric.name, None))
+        continue
+
+      allowed_filters = metrics.METRIC_FILTER_SCHEMA.get(metric.name)
+      if not allowed_filters:
+        raise MetricParsingError(
+            f"Metric '{metric.name}' does not support filters."
+        )
+
+      try:
+        parsed_filter = _parse_filter_str(metric.filter_str)
+      except MetricParsingError as e:
+        raise MetricParsingError(
+            f"Failed to parse filter for metric '{metric.name}': {e}"
+        ) from e
+
+      for key in parsed_filter:
+        if key not in allowed_filters:
+          raise MetricParsingError(
+              f"Invalid filter key '{key}' for metric '{metric.name}'. "
+              f"Allowed keys: {', '.join(allowed_filters)}"
+          )
+
+      parsed_metrics.append((metric.name, parsed_filter))
 
     return parsed_metrics
+
