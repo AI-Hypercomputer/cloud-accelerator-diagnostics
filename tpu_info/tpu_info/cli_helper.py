@@ -181,13 +181,15 @@ def fetch_metric_tables(
 
 
 def get_metric_table(
-    metric: Tuple[str, Dict[str, Any]], chip_type: device.TpuChip, count: int
+    metric: Tuple[str, Optional[Dict[str, Any]]],
+    chip_type: device.TpuChip,
+    count: int,
 ) -> List[console.RenderableType]:
   """Returns a table with the given metric info."""
-  metric_name, metric_filters = metric
+  metric_name, filters = metric
   renderables: List[console.RenderableType] = []
   transfer_latency_function = lambda: [
-      TransferLatencyTables().render(metric_name, metric_filters)
+      TransferLatencyTables().render(metric_name, filters)
   ]
   metric_functions = {
       "hbm_usage": lambda: get_hbm_usage_table(chip_type, count),
@@ -215,7 +217,8 @@ def render_empty_table_with_columns(
 
 
 def get_hbm_usage_table(
-    chip_type: device.TpuChip, count: int
+    chip_type: device.TpuChip,
+    count: int,
 ) -> List[console.RenderableType]:
   """Returns a table with the HBM usage info."""
   table = render_empty_table_with_columns(
@@ -246,7 +249,8 @@ def get_hbm_usage_table(
 
 
 def get_duty_cycle_table(
-    chip_type: device.TpuChip, count: int
+    chip_type: device.TpuChip,
+    count: int,
 ) -> List[console.RenderableType]:
   """Returns a table with the duty cycle info."""
   table = render_empty_table_with_columns(

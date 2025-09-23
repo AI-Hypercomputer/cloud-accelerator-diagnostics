@@ -17,7 +17,7 @@
 import enum
 import itertools
 import typing
-from typing import List
+from typing import Any, Dict, List, Optional, Tuple
 
 from tpu_info import device
 import grpc
@@ -164,12 +164,14 @@ def _get_percentile(
 def get_transfer_latency(
     metric_arg: str,
     addr: str = "localhost:8431",
+    filters: Optional[Dict[str, Any]] = None,
 ) -> List[TransferLatencyDistribution]:
   """Gets latency statistics for all attached TPU devices based on the metric name.
 
   Args:
     metric_arg: Metric name to fetch.
     addr: GRPC address of libtpu metrics server.
+    filters: Optional filters to apply to the metric request. Currently unused.
 
   Returns:
     List of latency statistics for each TPU device.
