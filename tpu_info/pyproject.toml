@@ -17,7 +17,7 @@ requires = ["hatchling", "hatch-build-scripts", "grpcio-tools~=1.65.5"]
 build-backend = "hatchling.build"
 
 [project]
-version = "0.5.1"
+version = "0.5.2"
 name = "tpu-info"
 dependencies = [
   # `grpcio` should match `grpcio-tools` build dependency

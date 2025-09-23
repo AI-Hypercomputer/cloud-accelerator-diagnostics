@@ -50,7 +50,9 @@ def _fetch_and_render_tables(
   renderables.extend(
       cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
   )
-  renderables.append(cli_helper.TensorCoreUtilizationTable().render(count))
+  # Do not render this table if the Python version is incompatible.
+  if not cli_helper.is_incompatible_python_version():
+    renderables.append(cli_helper.TensorCoreUtilizationTable().render(count))
   renderables.append(
       cli_helper.TransferLatencyTables().render("buffer_transfer_latency")
   )
@@ -74,6 +76,9 @@ def print_chip_info():
   cli_args = args.parse_arguments()
   console_obj = console.Console()
   is_incompatible = cli_helper.is_incompatible_python_version()
+
+  # Gives warning but doesn't exit the program at this stage; incompatible
+  # Python version will cause the program to skip rendering certain tables.
   if is_incompatible:
     console_obj.print(cli_helper.get_py_compat_warning_panel())
 
@@ -98,9 +103,6 @@ def print_chip_info():
             title_align="left",
         ),
     )
-    return
-
-  if is_incompatible:
     return
 
   # TODO(wcromar): Merge all of this info into one table
