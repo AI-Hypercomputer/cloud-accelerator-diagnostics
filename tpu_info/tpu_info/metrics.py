@@ -14,10 +14,12 @@
 
 """Client library for libtpu runtime metrics."""
 
+import contextlib
+import dataclasses
 import enum
 import itertools
 import typing
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from tpu_info import device
 import grpc
@@ -38,6 +40,13 @@ class MetricName(enum.Enum):
   HOST_TO_DEVICE_TRANSFER_LATENCY_US = "megascale.host_to_device_transfer_latencies.microsecond.cumulative.distribution"
   DEVICE_TO_HOST_TRANSFER_LATENCY_US = "megascale.device_to_host_transfer_latencies.microsecond.cumulative.distribution"
   COLLECTIVE_E2E_LATENCY_US = "megascale.collective_end_to_end_latencies.microsecond.cumulative.distribution"
+  GRPC_CLIENT_CALL_LATENCIES_US = "megascale.grpc_client_call_latencies.microsecond.cumulative.distribution"
+  GRPC_SERVER_CALL_LATENCIES_US = "megascale.grpc_server_call_latencies.microsecond.cumulative.distribution"
+  GRPC_TCP_MIN_RTT_US = "megascale.grpc_tcp_min_rtt.microsecond.cumulative.distribution"
+  GRPC_TCP_DELIVERY_RATE_MBPS = "megascale.grpc_tcp_delivery_rate.Mbps.cumulative.distribution"
+  GRPC_TCP_PACKETS_SENT_COUNT = "megascale.grpc_tcp_packets_sent.cumulative.count"
+  GRPC_TCP_PACKETS_RETRANSMITTED_COUNT = "megascale.grpc_tcp_packets_retransmitted.cumulative.count"
+  GRPC_TCP_PACKETS_SPURIOUS_RETRANSMITTED_COUNT = "megascale.grpc_tcp_packets_spurious_retransmitted.cumulative.count"
 
 
 class Usage(typing.NamedTuple):
@@ -52,7 +61,7 @@ class Usage(typing.NamedTuple):
 class TransferLatencyDistribution(typing.NamedTuple):
   """Distribution measurements."""
 
-  buffer_size: str
+  transfer_size: str
   p50: float
   p90: float
   p95: float
@@ -77,6 +86,13 @@ VALID_METRICS = {
     "host_to_device_transfer_latency",
     "device_to_host_transfer_latency",
     "collective_e2e_latency",
+    "grpc_client_call_latency",
+    "grpc_server_call_latency",
+    "grpc_tcp_min_rtt",
+    "grpc_tcp_delivery_rate",
+    "grpc_tcp_packets_sent",
+    "grpc_tcp_packets_retransmitted",
+    "grpc_tcp_packets_spurious_retransmitted",
 }
 
 LIBTPU_METRIC_MAP = {
@@ -88,6 +104,21 @@ LIBTPU_METRIC_MAP = {
         MetricName.DEVICE_TO_HOST_TRANSFER_LATENCY_US.value
     ),
     "collective_e2e_latency": MetricName.COLLECTIVE_E2E_LATENCY_US.value,
+    "grpc_client_call_latency": (
+        MetricName.GRPC_CLIENT_CALL_LATENCIES_US.value
+    ),
+    "grpc_server_call_latency": (
+        MetricName.GRPC_SERVER_CALL_LATENCIES_US.value
+    ),
+    "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
+    "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
+    "grpc_tcp_packets_sent": MetricName.GRPC_TCP_PACKETS_SENT_COUNT.value,
+    "grpc_tcp_packets_retransmitted": (
+        MetricName.GRPC_TCP_PACKETS_RETRANSMITTED_COUNT.value
+    ),
+    "grpc_tcp_packets_spurious_retransmitted": (
+        MetricName.GRPC_TCP_PACKETS_SPURIOUS_RETRANSMITTED_COUNT.value
+    ),
 }
 
 
@@ -195,7 +226,6 @@ def get_transfer_latency(
     growth_factor = (
         distribution.bucket_options.exponential_buckets.growth_factor
     )
-
     p50_count = int(count * 0.5)
     p90_count = int(count * 0.9)
     p95_count = int(count * 0.95)
@@ -206,9 +236,11 @@ def get_transfer_latency(
     p95 = _get_percentile(p95_count, count, bucket, scale, growth_factor)
     p999 = _get_percentile(p999_count, count, bucket, scale, growth_factor)
 
+    attributes = attribute.value.kvlist_attr.attributes
+    transfer_size = attributes[0].value.string_attr if attributes else "N/A"
     latency_distributions.append(
         TransferLatencyDistribution(
-            attribute.value.kvlist_attr.attributes[0].value.string_attr,
+            transfer_size,
             p50,
             p90,
             p95,

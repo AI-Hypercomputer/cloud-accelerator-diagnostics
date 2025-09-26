@@ -56,7 +56,18 @@ def _fetch_and_render_tables(
   renderables.append(
       cli_helper.TransferLatencyTables().render("buffer_transfer_latency")
   )
-
+  renderables.append(
+      cli_helper.TransferLatencyTables().render("grpc_client_call_latency")
+  )
+  renderables.append(
+      cli_helper.TransferLatencyTables().render("grpc_server_call_latency")
+  )
+  renderables.append(
+      cli_helper.TransferLatencyTables().render("grpc_tcp_min_rtt")
+  )
+  renderables.append(
+      cli_helper.TransferLatencyTables().render("grpc_tcp_delivery_rate")
+  )
   return renderables
 
 
@@ -135,7 +146,6 @@ def print_chip_info():
           )
       )
     return
-
 
   if cli_args.streaming:
     if cli_args.rate <= 0:

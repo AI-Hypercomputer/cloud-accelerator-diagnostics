@@ -19,10 +19,17 @@ import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from tpu_info import args_helper
 from tpu_info import device
 from tpu_info import metrics
 import grpc
+from packaging import version
+from rich import align
+from rich import console
+from rich import panel
+from rich import table as rich_table
+from rich import text
+
+
 try:
   # pylint: disable=g-import-not-at-top
   import libtpu  # pytype: disable=import-error
@@ -30,12 +37,7 @@ try:
 except ImportError:
   libtpu = None
   libtpu_sdk = None
-from packaging.version import parse as parse_version
-from rich import align
-from rich import console
-from rich import panel
-from rich import table as rich_table
-from rich import text
+parse_version = version.parse
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -78,18 +80,18 @@ def get_py_compat_warning_panel() -> panel.Panel:
 def fetch_cli_version() -> str:
   """Returns the version of the current TPU CLI."""
   try:
-    version = importlib.metadata.version("tpu-info")
+    tpu_info_version = importlib.metadata.version("tpu-info")
   except importlib.metadata.PackageNotFoundError:
-    version = "unknown (package metadata not found)"
-  return version
+    tpu_info_version = "unknown (package metadata not found)"
+  return tpu_info_version
 
 
 def fetch_libtpu_version() -> str:
   """Returns the version of the current libtpu."""
   try:
     if libtpu is not None:
-      version = libtpu.__version__
-      return version
+      libtpu_version = libtpu.__version__
+      return libtpu_version
     else:
       raise ImportError("libtpu not imported")
   except Exception:  # pylint: disable=broad-exception-caught
@@ -133,7 +135,7 @@ def get_tpu_cli_info() -> console.RenderableType:
       f"{'Libtpu version: '+ libtpu_version:<40}\n"
       f"{'Accelerator type: '+ accelerator_type:<40}\n",
   )
-  return align.Align.right(tpu_cli_info)
+  return align.Align.left(tpu_cli_info)
 
 
 def get_process_name(pid: int) -> Optional[str]:
@@ -201,6 +203,10 @@ def get_metric_table(
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
       "collective_e2e_latency": transfer_latency_function,
+      "grpc_client_call_latency": transfer_latency_function,
+      "grpc_server_call_latency": transfer_latency_function,
+      "grpc_tcp_min_rtt": transfer_latency_function,
+      "grpc_tcp_delivery_rate": transfer_latency_function,
   }
   renderables.extend(metric_functions[metric_name]())
   return renderables
@@ -459,6 +465,10 @@ class TransferLatencyTables:
       "host_to_device_transfer_latency": "Host to Device Transfer Latency",
       "device_to_host_transfer_latency": "Device to Host Transfer Latency",
       "collective_e2e_latency": "Collective End to End Latency",
+      "grpc_client_call_latency": "gRPC Client Call Latency",
+      "grpc_server_call_latency": "gRPC Server Call Latency",
+      "grpc_tcp_min_rtt": "gRPC TCP Minimum RTT",
+      "grpc_tcp_delivery_rate": "gRPC TCP Delivery Rate",
   }
 
   def render(
@@ -471,8 +481,18 @@ class TransferLatencyTables:
     if filters and "percentile" in filters:
       percentiles_to_show = filters["percentile"]
 
-    columns = ["Buffer Size"]
+    columns = []
+    if metric_arg == "buffer_transfer_latency":
+      columns = ["Buffer Size"]
+    elif filters and "buffer_size" in filters:
+      columns = ["Buffer Size"]
+    elif metric_arg == "grpc_client_call_latency":
+      columns = ["Request Size"]
+    elif metric_arg == "grpc_server_call_latency":
+      columns = ["Response Size"]
+
     columns.extend([p.upper() for p in percentiles_to_show])
+    unit = "Mbps" if metric_arg == "grpc_tcp_delivery_rate" else "us"
     table = render_empty_table_with_columns(
         f"TPU {metric_display_name}",
         columns,
@@ -504,8 +524,15 @@ class TransferLatencyTables:
         )
 
     for distribution in transfer_latency_distributions:
-      row = [distribution.buffer_size]
+      row = []
+      if (
+          metric_arg == "buffer_transfer_latency"
+          or (filters and "buffer_size" in filters)
+          or metric_arg == "grpc_client_call_latency"
+          or metric_arg == "grpc_server_call_latency"
+      ):
+        row = [distribution.transfer_size]
       for p in percentiles_to_show:
-        row.append(f"{getattr(distribution, p):.2f} us")
+        row.append(f"{getattr(distribution, p):.2f} {unit}")
       table.add_row(*row)
     return table

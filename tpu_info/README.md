@@ -26,21 +26,15 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.5.1
-
-✨ **Enhancements**
-
-* **Python 3.12+ Compatibility**: Now gracefully handles incompatible Python
-  environments. The tool displays a warning and disables `libtpu`-dependent
-  features to prevent crashing. The `--version` command will show "N/A" for the
-  `libtpu` version in this state.
+## What's New in Version 0.5.3
 
 🚀 **New Features**
 
-* `tpu-info` now supports **single metric query** mode with the `metric` flag.
-* The `version` flag now includes the libtpu version and the accelerator type of the TPU chip.
-* Introduced a `process` flag to display information about processes currently running on the TPU.
-* Introduced a `list_metrics` flag to display all the supported metrics.
+* `tpu-info` now supports four new metrics:
+ - gRPC Client call latency
+ - gRPC Server call latency
+ - gRPC TCP minimum RTT
+ - gRPC TCP Delivery Rate
 
 ***
 
