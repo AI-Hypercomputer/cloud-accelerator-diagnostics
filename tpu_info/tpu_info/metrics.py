@@ -13,9 +13,6 @@
 # limitations under the License.
 
 """Client library for libtpu runtime metrics."""
-
-import contextlib
-import dataclasses
 import enum
 import itertools
 import typing
@@ -40,13 +37,8 @@ class MetricName(enum.Enum):
   HOST_TO_DEVICE_TRANSFER_LATENCY_US = "megascale.host_to_device_transfer_latencies.microsecond.cumulative.distribution"
   DEVICE_TO_HOST_TRANSFER_LATENCY_US = "megascale.device_to_host_transfer_latencies.microsecond.cumulative.distribution"
   COLLECTIVE_E2E_LATENCY_US = "megascale.collective_end_to_end_latencies.microsecond.cumulative.distribution"
-  GRPC_CLIENT_CALL_LATENCIES_US = "megascale.grpc_client_call_latencies.microsecond.cumulative.distribution"
-  GRPC_SERVER_CALL_LATENCIES_US = "megascale.grpc_server_call_latencies.microsecond.cumulative.distribution"
   GRPC_TCP_MIN_RTT_US = "megascale.grpc_tcp_min_rtt.microsecond.cumulative.distribution"
   GRPC_TCP_DELIVERY_RATE_MBPS = "megascale.grpc_tcp_delivery_rate.Mbps.cumulative.distribution"
-  GRPC_TCP_PACKETS_SENT_COUNT = "megascale.grpc_tcp_packets_sent.cumulative.count"
-  GRPC_TCP_PACKETS_RETRANSMITTED_COUNT = "megascale.grpc_tcp_packets_retransmitted.cumulative.count"
-  GRPC_TCP_PACKETS_SPURIOUS_RETRANSMITTED_COUNT = "megascale.grpc_tcp_packets_spurious_retransmitted.cumulative.count"
 
 
 class Usage(typing.NamedTuple):
@@ -104,21 +96,8 @@ LIBTPU_METRIC_MAP = {
         MetricName.DEVICE_TO_HOST_TRANSFER_LATENCY_US.value
     ),
     "collective_e2e_latency": MetricName.COLLECTIVE_E2E_LATENCY_US.value,
-    "grpc_client_call_latency": (
-        MetricName.GRPC_CLIENT_CALL_LATENCIES_US.value
-    ),
-    "grpc_server_call_latency": (
-        MetricName.GRPC_SERVER_CALL_LATENCIES_US.value
-    ),
     "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
-    "grpc_tcp_packets_sent": MetricName.GRPC_TCP_PACKETS_SENT_COUNT.value,
-    "grpc_tcp_packets_retransmitted": (
-        MetricName.GRPC_TCP_PACKETS_RETRANSMITTED_COUNT.value
-    ),
-    "grpc_tcp_packets_spurious_retransmitted": (
-        MetricName.GRPC_TCP_PACKETS_SPURIOUS_RETRANSMITTED_COUNT.value
-    ),
 }
 
 

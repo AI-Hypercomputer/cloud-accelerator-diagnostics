@@ -30,9 +30,7 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 🚀 **New Features**
 
-* `tpu-info` now supports four new metrics:
- - gRPC Client call latency
- - gRPC Server call latency
+* `tpu-info` now supports two new metrics:
  - gRPC TCP minimum RTT
  - gRPC TCP Delivery Rate
 

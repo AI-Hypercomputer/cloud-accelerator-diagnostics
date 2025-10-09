@@ -57,12 +57,6 @@ def _fetch_and_render_tables(
       cli_helper.TransferLatencyTables().render("buffer_transfer_latency")
   )
   renderables.append(
-      cli_helper.TransferLatencyTables().render("grpc_client_call_latency")
-  )
-  renderables.append(
-      cli_helper.TransferLatencyTables().render("grpc_server_call_latency")
-  )
-  renderables.append(
       cli_helper.TransferLatencyTables().render("grpc_tcp_min_rtt")
   )
   renderables.append(

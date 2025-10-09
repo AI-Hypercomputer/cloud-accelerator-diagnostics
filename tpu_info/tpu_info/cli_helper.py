@@ -203,8 +203,6 @@ def get_metric_table(
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
       "collective_e2e_latency": transfer_latency_function,
-      "grpc_client_call_latency": transfer_latency_function,
-      "grpc_server_call_latency": transfer_latency_function,
       "grpc_tcp_min_rtt": transfer_latency_function,
       "grpc_tcp_delivery_rate": transfer_latency_function,
   }
@@ -465,8 +463,6 @@ class TransferLatencyTables:
       "host_to_device_transfer_latency": "Host to Device Transfer Latency",
       "device_to_host_transfer_latency": "Device to Host Transfer Latency",
       "collective_e2e_latency": "Collective End to End Latency",
-      "grpc_client_call_latency": "gRPC Client Call Latency",
-      "grpc_server_call_latency": "gRPC Server Call Latency",
       "grpc_tcp_min_rtt": "gRPC TCP Minimum RTT",
       "grpc_tcp_delivery_rate": "gRPC TCP Delivery Rate",
   }
@@ -486,10 +482,6 @@ class TransferLatencyTables:
       columns = ["Buffer Size"]
     elif filters and "buffer_size" in filters:
       columns = ["Buffer Size"]
-    elif metric_arg == "grpc_client_call_latency":
-      columns = ["Request Size"]
-    elif metric_arg == "grpc_server_call_latency":
-      columns = ["Response Size"]
 
     columns.extend([p.upper() for p in percentiles_to_show])
     unit = "Mbps" if metric_arg == "grpc_tcp_delivery_rate" else "us"
@@ -528,8 +520,6 @@ class TransferLatencyTables:
       if (
           metric_arg == "buffer_transfer_latency"
           or (filters and "buffer_size" in filters)
-          or metric_arg == "grpc_client_call_latency"
-          or metric_arg == "grpc_server_call_latency"
       ):
         row = [distribution.transfer_size]
       for p in percentiles_to_show:
