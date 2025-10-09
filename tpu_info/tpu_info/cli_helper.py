@@ -15,6 +15,8 @@
 """Helper functions for the CLI."""
 
 import importlib.metadata
+import multiprocessing
+import signal
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -30,14 +32,106 @@ from rich import table as rich_table
 from rich import text
 
 
-try:
-  # pylint: disable=g-import-not-at-top
-  import libtpu  # pytype: disable=import-error
-  from libtpu import sdk as libtpu_sdk  # pytype: disable=import-error
-except ImportError:
-  libtpu = None
-  libtpu_sdk = None
-parse_version = version.parse
+# Define global variables to hold the libraries (populated if checks succeed).
+libtpu = None
+libtpu_sdk = None
+
+
+def _check_library_safety():
+  """Canary function to be run in a separate process and not called directly.
+
+  This function is used to check if the libtpu import will succeed. It is run
+  in a separate process (via _initialize_libtpu_safely()) to avoid any side
+  effects in the main process, avoiding the main process and program from
+  exiting/crashing.
+
+  Its only job is to attempt the import. If there is an ImportError, the process
+  exists with code 1. If it segfaults, the process dies. If it succeeds, the
+  process exits cleanly with code 0.
+  """
+  try:
+    # We only need to import it to see if it crashes.
+    # pylint: disable=g-import-not-at-top
+    import libtpu  # pytype: disable=import-error
+    from libtpu import sdk  # pytype: disable=import-error
+  except ImportError:
+    # Handles the case where the library isn't installed.
+    # Exit with a special code so the parent knows what happened.
+    sys.exit(1)
+
+
+def _initialize_libtpu_safely() -> str:
+  """Manages process to perform the real import in main process if check passes.
+
+  This function is used to check if the libtpu import will succeed. It runs
+  _check_library_safety() in a separate process as a check to avoid any side
+  effects in the main process, avoiding the main process and program from 
+  exiting/crashing. The check then informs this function whether it is safe to
+  import libtpu in the main process through exit codes.
+
+  If the check passes, this function imports libtpu and libtpu.sdk in the main
+  process. If the check fails, this function returns an error message and does
+  not import libtpu or libtpu.sdk (keeping the global variables None).
+
+  Set of exit codes checked from running the canary process:
+  - `0`: Check passed, attempt to import libtpu in main process.
+  - `-1`: Check failed, do not import libtpu in main process.
+  - `11` or equivalent `-signal.SIGSEGV`: Check failed with segfault. Proceed
+    without importing libtpu.
+  - `1`: ImportError in cannary process (libtpu not found). Proceed without
+    importing libtpu.
+  - All other exit codes: Check failed with unknown exit code. Proceed without
+    importing libtpu.
+
+
+  Returns:
+    A string indicating the result of the check. "OK" if successful, otherwise
+    an error message.
+  """
+  # Make sure we're modifying the global variables, not local ones.
+  global libtpu, libtpu_sdk
+
+  # Run the canary process in a separate process.
+  process = multiprocessing.Process(target=_check_library_safety)
+  process.start()
+  process.join()
+  # Check the result of the canary process.
+  if process.exitcode == 0:
+    # Check succeeded so now it's safe to import here.
+    try:
+      # These imports now populate the global variables.
+      # pylint: disable=g-import-not-at-top
+      import libtpu as libtpu_temp  # pytype: disable=import-error
+      from libtpu import sdk as libtpu_sdk_temp  # pytype: disable=import-error
+      libtpu = libtpu_temp
+      libtpu_sdk = libtpu_sdk_temp
+      ok_message = "OK"
+      return ok_message
+    except ImportError:
+      # This should never happen, but if it does, give an error message.
+      error_message = (
+          "ERROR: Import of libtpu failed despite safety check passing."
+      )
+      return error_message
+  elif process.exitcode == -signal.SIGSEGV:
+    # This is the case where the canary process segfaulted but we'll continue
+    # anyway because it's better to try to run without TPU than to error out.
+    error_message = (
+        "WARNING: libtpu segfaulted during canary process. TPU may not work. "
+    )
+    return error_message
+  elif process.exitcode == 1:
+    # This is the case where the library isn't installed.
+    error_message = "ERROR: libtpu not found."
+    return error_message
+
+  error_message = f"Check failed with unknown exit code: {process.exitcode}."
+  return error_message
+
+
+libtpu_import_status_message = _initialize_libtpu_safely()
+if libtpu_import_status_message != "OK":
+  print(libtpu_import_status_message)
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -45,30 +139,66 @@ def _bytes_to_gib(size: int) -> float:
   return size / (1 << 30)
 
 
-def is_incompatible_python_version() -> bool:
-  """Checks if the current Python version is 3.12 or newer."""
-  if sys.version_info < (3, 12):
-    return False
+def _get_libtpusdk_version() -> str | None:
+  """Returns the version of the libtpu SDK or None if not found."""
   try:
-    if libtpu is None:
+    libtpu_version = fetch_libtpu_version()
+  except ImportError:  # Assume libtpu is not installed, so no version
+    return None
+  return libtpu_version
+
+
+def is_incompatible_python_version() -> bool:
+  """Checks if the current Python version is compatible with the libtpu SDK.
+
+  Specifically, this function checks if the current Python version is
+  compatible with the libtpu SDK by comparing the Python version to the
+  libtpu version.
+
+  The following are considered incompatible:
+  - libtpu is not available to be imported (not installed)
+  - Python version >= 3.12 and libtpu <= 0.0.20
+  - Python version != 3.11.x and libtpu == 0.0.20
+
+
+  Returns:
+    True if the current Python version is incompatible, False otherwise.
+  """
+  # If libtpu is not imported, automatically incompatible
+  libtpu_version = _get_libtpusdk_version()
+  if libtpu_version is None:  # pytype: disable=name-error
+    return True
+  else:
+    try:
+      current_libtpu_version = version.parse(libtpu_version)
+    except version.InvalidVersion:
       return True
 
-    first_compatible_version = parse_version("3.20")
-    current_version = parse_version(libtpu.__version__)
-    if current_version < first_compatible_version:
-      return True
-    else:
-      return False
-  except (ImportError, AttributeError):
+  # If Python version >= 3.12 & libtpu <= 0.0.20 --> incompatible
+  if (
+      sys.version_info >= (3, 12)
+      and current_libtpu_version <= version.parse("0.0.20")
+  ):
     return True
+  # If python version != 3.11.x & libtpu == 0.0.20 --> incompatible
+  elif (
+      current_libtpu_version == version.parse("0.0.20")
+      and not (sys.version_info.major == 3 and sys.version_info.minor == 11)
+  ):
+    return True
+  else:  # Otherwise assume compatible
+    return False
 
 
 def get_py_compat_warning_panel() -> panel.Panel:
   """Returns a Rich Panel with a Python compatibility warning."""
+  python_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+  libtpusdk_version = _get_libtpusdk_version() or "missing"
   warning_text = (
-      "Some features are disabled due to an incompatibility between the libtpu"
-      " SDK and Python 3.12+.\n\nFor full functionality, please use a"
-      " different Python environment."
+      f"Some features are disabled due to an incompatibility between"
+      f" the libtpu SDK (version {libtpusdk_version}) and"
+      f" Python {python_version}."
+      "\n\nFor full functionality, please use a different Python environment."
   )
   return panel.Panel(
       f"[yellow]{warning_text}[/yellow]",

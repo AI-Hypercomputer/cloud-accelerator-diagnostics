@@ -26,13 +26,15 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.5.3
+## What's New in Version 0.5.4
 
 🚀 **New Features**
 
-* `tpu-info` now supports two new metrics:
- - gRPC TCP minimum RTT
- - gRPC TCP Delivery Rate
+* Check for Python and `libtpu` version for compatibility
+  - Warning provided if known compatibility issue but still runs `tpu-info`
+* Catches issues with internal `libtpu` import (exit codes, segfaults, etc.)
+  - Prevents importing `libtpu` in the case of an importing issue
+  - `tpu-info` still runs but won't have access to metrics provided by `libtpu`
 
 ***
 
