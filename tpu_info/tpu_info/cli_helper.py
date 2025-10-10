@@ -625,7 +625,7 @@ class TransferLatencyTables:
     except grpc.RpcError as e:
       exception_message: str
       exception_renderable: panel.Panel
-      if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+      if e.code() == grpc.StatusCode.UNAVAILABLE or e.code() == grpc.StatusCode.NOT_FOUND:  # pytype: disable=attribute-error
         exception_message = (
             f"{metric_display_name} metrics unavailable. Did you start"
             " a MULTI_SLICE workload with"
