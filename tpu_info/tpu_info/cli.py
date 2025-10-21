@@ -46,7 +46,20 @@ def _fetch_and_render_tables(
   renderables: List[console.RenderableType] = []
 
   renderables.append(cli_helper.get_tpu_cli_info())
-  renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
+
+  # Different table for V7X due to two devices (cores) per chip.
+  if chip_type is device.TpuChip.V7X:
+    actual_chips = device.get_actual_chips()
+    renderables.append(
+        cli_helper.ActualTpuChipsTable().render(
+            chip_type=chip_type,
+            chip_info=actual_chips,
+            core_detail=False,
+        )
+    )
+  else:
+    renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
+
   renderables.extend(
       cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
   )

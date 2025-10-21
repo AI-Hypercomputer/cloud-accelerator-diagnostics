@@ -473,6 +473,98 @@ class TpuChipsTable:
     return table
 
 
+class ActualTpuChipsTable:
+  """Renders a table with TPU chip information from actual devices found."""
+
+  def get_representative_core(
+      self,
+      chip: device.ChipInfo,
+      representative_index: int = 0,
+  ) -> device.CoreInfo | None:
+    """Returns the representative core for a chip."""
+    if len(chip.cores) >= 1:
+      # Use representative core if it exists, otherwise use first core.
+      if representative_index in chip.cores:
+        return chip.cores[representative_index]
+      else:
+        return next(iter(chip.cores.values()))
+    else:  # No cores on chip
+      return None
+
+  def render(
+      self,
+      chip_type: device.TpuChip,
+      chip_info: list[device.ChipInfo],
+      core_detail: bool = False,
+    ) -> console.RenderableType:
+    """Creates a Rich Table with TPU chip information."""
+    columns = [
+        "Chip ",  # Chip will be represented by zero-indexed core on chip.
+        "Type",
+        "Devices",
+        "PID",
+    ]
+    # Present core details (potentially more than one chip as their own row)
+    if core_detail:
+      columns.extend(["Path",])
+
+    table = render_empty_table_with_columns(
+        "TPU Chips",
+        columns,
+    )
+
+    # For each chip, get the PIDs from cores on chip and add to table.
+    chip_owners = device.get_chip_owners()
+    for chip in chip_info:
+      # Use a single core to represent the chip.
+      representative_core = self.get_representative_core(chip)
+
+      # Get the representative core's vfio path to represent the chip.
+      if representative_core:
+        chip_representation = representative_core.vfio_path
+      else:
+        chip_representation = "N/A"
+
+      # Get PIDs from core(s) on chip
+      if len(chip.cores) >= 2:
+        # Likely just 1 PID, but being cautious & handling unique PIDs per core.
+        owner_set = set(
+            str(chip_owners.get(core.vfio_path))
+            for core in chip.cores.values()
+            if chip_owners.get(core.vfio_path) is not None
+        )
+        # If at least one core PID is not None, use a comma-separated list.
+        if owner_set:
+          owner_str = ", ".join(owner_set)
+        else:
+          owner_str = "None"
+      elif len(chip.cores) == 1:
+        # Assume the only core on the chip can have any index.
+        if representative_core:
+          owner_str = str(
+              chip_owners.get(representative_core.vfio_path)
+              if chip_owners.get(representative_core.vfio_path) else "N/A"
+          )
+        else:
+          owner_str = "N/A"
+      else:
+        owner_str = "N/A"
+      row_items = [
+          chip_representation,
+          str(chip_type),
+          str(chip_type.value.devices_per_chip),
+          owner_str,
+      ]
+      if core_detail:
+        core_path = str([core.vfio_path for core in chip.cores.values()])
+        row_items.extend([
+            core_path,
+        ])
+      table.add_row(*row_items)
+
+    return table
+
+
 class TpuRuntimeUtilizationTable:
   """Renders a table with TPU runtime utilization metrics."""
 

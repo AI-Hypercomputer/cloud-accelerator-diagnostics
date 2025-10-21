@@ -15,6 +15,7 @@
 """Utilities for detecting locally-attached TPU devices."""
 
 import collections
+import dataclasses
 import enum
 import glob
 import os
@@ -73,6 +74,93 @@ class TpuChip(enum.Enum):
       return "TPU7x chip"
     else:
       return f"TPU {self.value.name} chip"
+
+
+@dataclasses.dataclass
+class CoreInfo:
+  """Information about a TPU core."""
+  core_index: int
+  device_id: str
+  vfio_path: str
+  full_addr: str
+
+
+@dataclasses.dataclass
+class ChipInfo:
+  """Information about a TPU chip."""
+  base_addr: str
+  # Core index to CoreInfo mapping.
+  cores: dict[int, CoreInfo] = dataclasses.field(default_factory=dict)
+
+
+def get_actual_chips() -> list[ChipInfo]:
+  """Returns the list of information about chips with core information."""
+  pci_devices_path = "/sys/bus/pci/devices/*"
+  # Organize chips by base address & associate cores/devices with chips.
+  chips_by_base_addr: dict[str, ChipInfo] = {}
+  for device_path in glob.glob(pci_devices_path):
+    try:
+      pci_addr = os.path.basename(device_path)
+      # Check vendor ID
+      vendor_path = os.path.join(device_path, "vendor")
+      with open(vendor_path, "r") as f:
+        vendor_id = f.read().strip()
+      if vendor_id != GOOGLE_PCI_VENDOR_ID:
+        continue
+    except IOError:
+      continue
+    # Check for IOMMU group
+    iommu_group_path = os.path.join(device_path, "iommu_group")
+    if not os.path.islink(iommu_group_path):
+      continue
+    try:
+      # Read the symlink to get the IOMMU group number
+      iommu_link = os.readlink(iommu_group_path)
+      iommu_group = os.path.basename(iommu_link)
+
+      # Read device ID using the path (should be just device ID)
+      with open(os.path.join(device_path, "device"), "r") as f:
+        device_id = f.read().strip()
+
+      # Group by base PCI address (Domain:Bus:Device)
+      pci_base = pci_addr.split(".")[0]
+      core_index = int(pci_addr.split(".")[-1])
+
+      # Either grab the existing ChipInfo object or create a new one.
+      chip_info = chips_by_base_addr.get(
+          pci_base,
+          ChipInfo(base_addr=pci_base, cores=dict())
+      )
+      # Overwrite in the unusual case of a core with the same index already
+      # existing on the chip (shouldn't happen).
+      core_info = CoreInfo(
+          core_index=core_index,
+          device_id=device_id,
+          vfio_path=f"/dev/vfio/{iommu_group}",
+          full_addr=pci_addr,
+      )
+      chip_info.cores[core_index] = core_info
+
+      # Make sure we have the new/updated ChipInfo object with core information.
+      chips_by_base_addr[pci_base] = chip_info
+    except IOError:
+      continue
+
+  # Sort the chips by the chip's zero-indexed core's vfio path.
+  def chip_sort_key(chip: ChipInfo) -> str:
+    # lambda chip: chip.cores[0].vfio_path
+    if 0 in chip.cores:
+      return chip.cores[0].vfio_path
+    elif not chip.cores:
+      return ""
+    else:
+      return next(iter(chip.cores.values())).vfio_path
+
+  chips = sorted(
+      chips_by_base_addr.values(),
+      key=chip_sort_key,
+  )
+  return chips
 
 
 def get_local_chips() -> Tuple[Optional[TpuChip], int]:
