@@ -42,6 +42,7 @@ class TpuChip(enum.Enum):
   V5E = Info("v5e", hbm_gib=16, devices_per_chip=1)
   V5P = Info("v5p", hbm_gib=95, devices_per_chip=1)
   V6E = Info("v6e", hbm_gib=32, devices_per_chip=1)
+  V7X = Info("7x", hbm_gib=192, devices_per_chip=2)
 
   @classmethod
   def from_pci_device_id(
@@ -60,13 +61,18 @@ class TpuChip(enum.Enum):
         "0x0063": cls.V5E,
         "0x0062": cls.V5P,
         "0x006f": cls.V6E,
+        "0x0076": cls.V7X,
     }
 
     return device_id_to_device.get(device_id)
 
   def __str__(self):
     """Human-readable name of TPU chip type."""
-    return f"TPU {self.value.name} chip"
+    # If it is v7x, string is TPU7x (not TPU v7x)
+    if self.value.name == "7x":
+      return "TPU7x chip"
+    else:
+      return f"TPU {self.value.name} chip"
 
 
 def get_local_chips() -> Tuple[Optional[TpuChip], int]:
@@ -93,7 +99,7 @@ def get_local_chips() -> Tuple[Optional[TpuChip], int]:
 
 def chip_path(chip_type: TpuChip, index: int):
   """Returns the expected `/dev` path for a given TPU device type."""
-  if chip_type in [TpuChip.V5E, TpuChip.V5P, TpuChip.V6E]:
+  if chip_type in {TpuChip.V5E, TpuChip.V5P, TpuChip.V6E, TpuChip.V7X}:
     return f"/dev/vfio/{index}"
   else:
     return f"/dev/accel{index}"
