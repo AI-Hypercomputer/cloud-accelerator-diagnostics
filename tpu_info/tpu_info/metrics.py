@@ -100,6 +100,53 @@ LIBTPU_METRIC_MAP = {
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
 }
 
+def get_chip_usage_new(
+    chip_type: device.TpuChip, addr: str = "localhost:8431"
+) -> List[Usage]:
+  """Gets usage statistics for all attached TPU devices.
+
+  Args:
+    chip_type: TPU chip version. Determines how metrics are interpreted.
+    addr: GRPC address of libtpu metrics server.
+
+  Returns:
+    List of usage statistics for each TPU device.
+  """
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+
+  def sorted_metric_response(
+      metric_name: MetricName,
+  ) -> List[tpu_metrics.Metric]:
+    # Manually annotate type until GRPC supports annotations
+    # See https://github.com/grpc/grpc/issues/29041
+    resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
+        tpu_metrics.MetricRequest(metric_name=metric_name.value)
+    )
+    return sorted(resp.metric.metrics, key=lambda m: m.attribute.value.int_attr)
+
+  totals = sorted_metric_response(MetricName.TOTAL_MEMORY)
+  usages = sorted_metric_response(MetricName.MEMORY_USAGE)
+  duty_cycle_pct = sorted_metric_response(MetricName.DUTY_CYCLE_PCT)
+
+  # Duty cycle is always measured per-chip, while memory is measured per-core.
+  # Repeat if necessary so these responses are the same length.
+  duty_cycle_pct_per_core = duty_cycle_pct
+
+  assert (
+      len(totals) == len(usages) == len(duty_cycle_pct_per_core)
+  ), "Metrics not found for all chips"
+
+  return [
+      Usage(
+          u.attribute.value.int_attr,
+          u.gauge.as_int,
+          t.gauge.as_int,
+          d.gauge.as_double,
+      )
+      for u, t, d in zip(usages, totals, duty_cycle_pct_per_core)
+  ]
+
 
 def get_chip_usage(
     chip_type: device.TpuChip, addr: str = "localhost:8431"

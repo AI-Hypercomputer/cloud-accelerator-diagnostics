@@ -57,12 +57,14 @@ def _fetch_and_render_tables(
             core_detail=False,
         )
     )
+    renderables.extend(
+        cli_helper.NewTpuRuntimeUtilizationTable().render(chip_type, count)
+    )
   else:
     renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
-
-  renderables.extend(
-      cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
-  )
+    renderables.extend(
+        cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
+    )
   # Do not render this table if the Python version is incompatible.
   if not cli_helper.is_incompatible_python_version():
     renderables.append(cli_helper.TensorCoreUtilizationTable().render(count))

@@ -388,7 +388,7 @@ def get_duty_cycle_table(
 ) -> List[console.RenderableType]:
   """Returns a table with the duty cycle info."""
   table = render_empty_table_with_columns(
-      "TPU Duty Cycle", ["Chip ID", "Duty Cycle (%)"]
+      "TPU Duty Cycle", ["Core ID", "Duty Cycle (%)"]
   )
   renderables: List[console.RenderableType] = []
   device_usage = get_device_usage(chip_type)
@@ -421,7 +421,10 @@ def get_device_usage(
 ) -> List[metrics.Usage] | panel.Panel:
   """Returns a list of device usage metrics and exception renderable if any."""
   try:
-    device_usage = metrics.get_chip_usage(chip_type)
+    if chip_type is device.TpuChip.V7X:
+      device_usage = metrics.get_chip_usage_new(chip_type)
+    else:
+      device_usage = metrics.get_chip_usage(chip_type)
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
@@ -565,6 +568,46 @@ class ActualTpuChipsTable:
     return table
 
 
+class NewTpuRuntimeUtilizationTable:
+  """Renders a table with TPU runtime utilization metrics."""
+
+  def render(self, chip_type: Any, count: int) -> List[console.RenderableType]:
+    """Creates a Rich Table or Panel for TPU runtime utilization."""
+    renderables: List[console.RenderableType] = []
+
+    table = render_empty_table_with_columns(
+        "TPU Runtime Utilization", ["Chip", "HBM Usage (GiB)", "Duty cycle"]
+    )
+    # TODO(wcromar): take alternative ports as a flag
+    # print("Connected to libtpu at grpc://localhost:8431...")
+
+    device_usage = get_device_usage(chip_type)
+
+    if isinstance(device_usage, list):
+      for chip in device_usage:
+        memory_usage = (
+            f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
+            f" {_bytes_to_gib(chip.total_memory):.2f} GiB"
+        )
+        duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
+        table.add_row(
+            str(chip.device_id),
+            memory_usage,
+            duty_cycle_pct,
+        )
+    else:
+      renderables.append(device_usage)
+      for device_id in range(count):
+        table.add_row(
+            str(device_id),
+            "N/A",
+            "N/A",
+        )
+
+    renderables.append(table)
+    return renderables
+
+
 class TpuRuntimeUtilizationTable:
   """Renders a table with TPU runtime utilization metrics."""
 
@@ -573,7 +616,7 @@ class TpuRuntimeUtilizationTable:
     renderables: List[console.RenderableType] = []
 
     table = render_empty_table_with_columns(
-        "TPU Runtime Utilization", ["Device", "HBM Usage (GiB)", "Duty cycle"]
+        "TPU Runtime Utilization", ["Chip", "HBM Usage (GiB)", "Duty cycle"]
     )
     # TODO(wcromar): take alternative ports as a flag
     # print("Connected to libtpu at grpc://localhost:8431...")
@@ -647,7 +690,7 @@ class TensorCoreUtilizationTable:
       )
     except RuntimeError as e:
       table = render_empty_table_with_columns(
-          "TensorCore Utilization", ["Chip ID", "TensorCore Utilization"]
+          "TensorCore Utilization", ["Core ID", "TensorCore Utilization"]
       )
       for i in range(count):
         table.add_row(str(i), "N/A")
@@ -662,7 +705,7 @@ class TensorCoreUtilizationTable:
       )
 
     table = render_empty_table_with_columns(
-        "TensorCore Utilization", ["Chip ID", "TensorCore Utilization"]
+        "TensorCore Utilization", ["Core ID", "TensorCore Utilization"]
     )
     if tensorcore_util_data:
       for i, util_data in enumerate(tensorcore_util_data):
