@@ -203,8 +203,8 @@ def get_chip_owners() -> Dict[str, int]:
     except FileNotFoundError:
       continue
 
-    # /dev/accel_ or /dev/vfio/_
-    if re.fullmatch(r"/dev/(?:accel|vfio/)\d", file):
+    # Matches /dev/accel_ or /dev/vfio/_ ending with a postiive integer.
+    if re.fullmatch(r"/dev/(?:accel|vfio/)\d+", file):
       match = re.fullmatch(r"/proc/(\d+)/fd/\d+", link)
       if not match:
         raise RuntimeError("Unknown link pattern", link)
