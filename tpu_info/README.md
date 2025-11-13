@@ -26,14 +26,16 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.6.0
+## What's New in Version 0.7.0
 
 🚀 **New Features**
 
-* Metric tables support new generation of TPU.
-* Update `TPU Runtime Utilization` and `TensorCore Utilization` tables use
-  "Chip" and "Core ID" columns as thier first columns respectively. This
-  avoids confusion in using the term "device" by being more specific.
+* New tables available for TPUz metrics
+  - Core States: under `core_state` metric
+  - Sequencer States: under `sequencer_state` and `sequencer_state_detailed`
+    metrics
+  - Queued Programs: under `queued_programs` metric
+* Fixes bug so more than 9 cores are displayed with their VFIO paths & PIDs
 
 ***
 
@@ -236,16 +238,41 @@ TPU Process Info
 └─────────────┴────────┴──────────────┘
 ```
 
+### List Metrics
+
+You can use the `--list_metrics` flag to display all supported metrics that can
+be given along with the `--metric` flag.
+
+```bash
+$ tpu-info --list_metrics
+╭─ Supported Metrics ─────────────────────────────────────────────────────────────────────────────╮
+│         grpc_tcp_min_rtt                                                                        │
+│         host_to_device_transfer_latency                                                         │
+│         grpc_server_call_latency                                                                │
+│         grpc_tcp_packets_spurious_retransmitted                                                 │
+│         grpc_tcp_delivery_rate                                                                  │
+│         buffer_transfer_latency                                                                 │
+│         grpc_client_call_latency                                                                │
+│         grpc_tcp_packets_retransmitted                                                          │
+│         collective_e2e_latency                                                                  │
+│         device_to_host_transfer_latency                                                         │
+│         hbm_usage                                                                               │
+│         grpc_tcp_packets_sent                                                                   │
+│         duty_cycle_percent                                                                      │
+│         core_state                                                                              │
+│         sequencer_state                                                                         │
+│         sequencer_state_detailed                                                                │
+│         queued_programs                                                                         │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
 ### Metric
 
 You can use the `--metric` flag to display specific metrics. You can specify
-multiple metrics separated by spaces. Supported metrics are: `hbm_usage`,
-`duty_cycle_percent`, `tensorcore_utilization`, `buffer_transfer_latency`,
-`host_to_device_transfer_latency`, `device_to_host_transfer_latency` and
-`collective_e2e_latency`.
+multiple metrics separated by spaces with multiple `--metric` flags.
 
 ```bash
-$ tpu-info --metric duty_cycle_percent hbm_usage
+$ tpu-info --metric duty_cycle_percent --metric hbm_usage
 TPU Duty Cycle
 ┏━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
 ┃ Core ID ┃ Duty Cycle (%) ┃
@@ -274,29 +301,5 @@ TPU HBM Usage
 └────────┴───────────────────────┘
 ```
 
-### List Metrics
-
-You can use the `--list_metrics` flag to display all supported metrics that can
-be given along with the `--metric` flag.
-
-```bash
-$ tpu-info --list_metrics
-╭─ Supported Metrics ─────────────────────────────────────────────────────────────────────────────╮
-│         grpc_tcp_min_rtt                                                                                                                             │
-│         host_to_device_transfer_latency                                                                                                              │
-│         grpc_server_call_latency                                                                                                                     │
-│         grpc_tcp_packets_spurious_retransmitted                                                                                                      │
-│         grpc_tcp_delivery_rate                                                                                                                       │
-│         buffer_transfer_latency                                                                                                                      │
-│         grpc_client_call_latency                                                                                                                     │
-│         grpc_tcp_packets_retransmitted                                                                                                               │
-│         collective_e2e_latency                                                                                                                       │
-│         device_to_host_transfer_latency                                                                                                              │
-│         hbm_usage                                                                                                                                    │
-│         grpc_tcp_packets_sent                                                                                                                        │
-│         duty_cycle_percent                                                                                                                           │
-│         tensorcore_utilization                                                                  │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
-```
 
 [^1]: Releases from before 2024 may not be compatible.
