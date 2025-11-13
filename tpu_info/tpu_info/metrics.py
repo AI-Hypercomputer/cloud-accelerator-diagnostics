@@ -28,6 +28,21 @@ from tpu_info.proto import tpu_telemetry_pb2
 
 
 @dataclasses.dataclass
+class SequencerState:
+  """Structured data for the state of a sequencer of a single TPU core."""
+
+  sequencer_type: str
+  sequencer_index: int
+  pc: int
+  tag: int
+  tracemark: int
+  program_id: int
+  run_id: int
+  hlo_location: Optional[str] = None
+  hlo_detailed_info: Optional[str] = None
+
+
+@dataclasses.dataclass
 class CoreState:
   """Structured data for the state of a single TPU core."""
 
@@ -36,6 +51,7 @@ class CoreState:
   core_on_chip_index: int
   core_type: str
   xdb_server: bool
+  sequencer_states: List[SequencerState]
   program_fingerprint: str
   error_message: Optional[str] = None
 
@@ -101,6 +117,8 @@ VALID_METRICS = {
     "grpc_tcp_packets_retransmitted",
     "grpc_tcp_packets_spurious_retransmitted",
     "core_state",
+    "sequencer_state",
+    "sequencer_state_detailed",
 }
 
 LIBTPU_METRIC_MAP = {
@@ -320,6 +338,33 @@ def get_tpuz_info(
   for core_id in sorted(response.core_states.keys()):
     core_summary = response.core_states[core_id]
 
+    # Parse sequencer information.
+    sequencers = []
+    for seq_info in core_summary.sequencer_info:
+      sequencers.append(
+          SequencerState(
+              sequencer_type=tpu_telemetry_pb2.TpuSequencerTypeProto.Name(
+                  seq_info.sequencer_type
+              ),
+              sequencer_index=seq_info.sequencer_index,
+              pc=seq_info.pc,
+              tag=seq_info.tag,
+              tracemark=seq_info.tracemark,
+              program_id=seq_info.program_id,
+              run_id=seq_info.run_id,
+              hlo_location=(
+                  seq_info.hlo_location
+                  if seq_info.HasField("hlo_location")
+                  else None
+              ),
+              hlo_detailed_info=(
+                  seq_info.hlo_detailed_info
+                  if seq_info.HasField("hlo_detailed_info")
+                  else None
+              ),
+          )
+      )
+
     # Parse core information.
     core_state = CoreState(
         global_core_id=core_id,
@@ -329,6 +374,7 @@ def get_tpuz_info(
             core_summary.core_id.core_on_chip.type
         ),
         xdb_server=core_summary.xdb_server_running,
+        sequencer_states=sequencers,
         program_fingerprint=core_summary.program_fingerprint.hex(),
         error_message=(
             core_summary.error_message if core_summary.HasField("error_message")
