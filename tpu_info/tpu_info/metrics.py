@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Client library for libtpu runtime metrics."""
+import dataclasses
 import enum
 import itertools
 import typing
@@ -23,6 +24,20 @@ import grpc
 
 from tpu_info.proto import tpu_metric_service_pb2 as tpu_metrics
 from tpu_info.proto import tpu_metric_service_pb2_grpc as tpu_metrics_grpc
+from tpu_info.proto import tpu_telemetry_pb2
+
+
+@dataclasses.dataclass
+class CoreState:
+  """Structured data for the state of a single TPU core."""
+
+  global_core_id: int
+  chip_id: int
+  core_on_chip_index: int
+  core_type: str
+  xdb_server: bool
+  program_fingerprint: str
+  error_message: Optional[str] = None
 
 
 class MetricName(enum.Enum):
@@ -85,6 +100,7 @@ VALID_METRICS = {
     "grpc_tcp_packets_sent",
     "grpc_tcp_packets_retransmitted",
     "grpc_tcp_packets_spurious_retransmitted",
+    "core_state",
 }
 
 LIBTPU_METRIC_MAP = {
@@ -99,6 +115,7 @@ LIBTPU_METRIC_MAP = {
     "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
 }
+
 
 def get_chip_usage_new(
     chip_type: device.TpuChip, addr: str = "localhost:8431"
@@ -275,3 +292,49 @@ def get_transfer_latency(
     )
 
   return latency_distributions
+
+
+def get_tpuz_info(
+    addr: str = "localhost:8431",
+    include_hlo_info: bool = False,
+) -> List[CoreState]:
+  """Gets TPUz info from libtpu and parses it into CoreState objects.
+
+  Args:
+    addr: GRPC address of libtpu metrics server.
+    include_hlo_info: Whether to include HLO info in the response. This can be
+      computationally expensive so it is disabled by default.
+
+  Returns:
+    List of CoreState objects, one for each TPU core.
+  """
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+  status_request = tpu_metrics.GetTpuRuntimeStatusRequest(
+      include_hlo_info=include_hlo_info
+  )
+  response = client.GetTpuRuntimeStatus(status_request)
+
+  core_states = []
+  # The map keys are global core IDs. Iterate in sorted order for consistency.
+  for core_id in sorted(response.core_states.keys()):
+    core_summary = response.core_states[core_id]
+
+    # Parse core information.
+    core_state = CoreState(
+        global_core_id=core_id,
+        chip_id=core_summary.core_id.chip_id,
+        core_on_chip_index=core_summary.core_id.core_on_chip.index,
+        core_type=tpu_telemetry_pb2.TpuCoreTypeProto.Name(
+            core_summary.core_id.core_on_chip.type
+        ),
+        xdb_server=core_summary.xdb_server_running,
+        program_fingerprint=core_summary.program_fingerprint.hex(),
+        error_message=(
+            core_summary.error_message if core_summary.HasField("error_message")
+            else None
+        ),
+    )
+    core_states.append(core_state)
+
+  return core_states

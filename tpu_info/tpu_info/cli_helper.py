@@ -335,8 +335,60 @@ def get_metric_table(
       "collective_e2e_latency": transfer_latency_function,
       "grpc_tcp_min_rtt": transfer_latency_function,
       "grpc_tcp_delivery_rate": transfer_latency_function,
+      "core_state": get_tpuz_core_state,
   }
   renderables.extend(metric_functions[metric_name]())
+  return renderables
+
+
+def get_tpuz_core_state() -> List[console.RenderableType]:
+  """Returns a table with the TPUz core state info."""
+  data_columns = [
+      "Chip ID",
+      "Global Core ID",
+      "Core Type",
+      "xdb Server",
+  ]
+  table = render_empty_table_with_columns(
+      title="Core States",
+      columns=data_columns,
+  )
+  renderables: List[console.RenderableType] = []
+  try:
+    core_states = metrics.get_tpuz_info(include_hlo_info=False)
+    for core_state in core_states:
+      table.add_row(
+          str(core_state.chip_id),
+          str(core_state.global_core_id),
+          str(core_state.core_type),
+          str(core_state.xdb_server),
+      )
+  except grpc.RpcError as e:
+    exception_message: str
+    exception_renderable: panel.Panel
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+      exception_message = (
+          "TPUz info unavailable. Is there a framework using the"
+          " TPU? See"
+          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          "tree/main/tpu_info]tpu_info docs[/link]"
+          " for more information."
+      )
+      exception_renderable = panel.Panel(
+          f"[yellow]WARNING:[/yellow] {exception_message}",
+          title="[b]TPUz Status[/b]",
+          border_style="yellow",
+      )
+    else:
+      exception_message = f"ERROR fetching TPUz info: {e}"
+      exception_renderable = panel.Panel(
+          f"[red]{exception_message}[/red]",
+          title="[b]TPUz Error[/b]",
+          border_style="red",
+      )
+    renderables.append(exception_renderable)
+
+  renderables.append(table)
   return renderables
 
 

@@ -17,7 +17,7 @@ requires = ["hatchling", "hatch-build-scripts", "grpcio-tools~=1.65.5"]
 build-backend = "hatchling.build"
 
 [project]
-version = "0.6.0"
+version = "0.7.0"
 name = "tpu-info"
 dependencies = [
   # `grpcio` should match `grpcio-tools` build dependency
@@ -59,6 +59,8 @@ artifacts = [
   "tpu_metric_service_pb2.py",
   "tpu_metric_service_pb2.pyi",
   "tpu_metric_service_pb2_grpc.py",
+  "tpu_telemetry_pb2.py",
+  "tpu_telemetry_pb2.pyi",
 ]
 
 [[tool.hatch.build.hooks.build-scripts.scripts]]
@@ -67,6 +69,7 @@ commands = [
   # package (e.g. `from tpu_info.proto import ...`)
   # See protoc bug: https://github.com/protocolbuffers/protobuf/issues/1491
   "python -m grpc_tools.protoc -I. tpu_info/proto/tpu_metric_service.proto --python_out=. --pyi_out=. --grpc_python_out=.",
+  "python -m grpc_tools.protoc -I. tpu_info/proto/tpu_telemetry.proto --python_out=. --pyi_out=.",
 ]
 artifacts = []
 clean_artifacts = false
