@@ -28,6 +28,15 @@ from tpu_info.proto import tpu_telemetry_pb2
 
 
 @dataclasses.dataclass
+class QueuedProgram:
+  """Structured data for a program queued for execution."""
+
+  run_id: int
+  launch_id: int
+  program_fingerprint: str
+
+
+@dataclasses.dataclass
 class SequencerState:
   """Structured data for the state of a sequencer of a single TPU core."""
 
@@ -54,6 +63,7 @@ class CoreState:
   sequencer_states: List[SequencerState]
   program_fingerprint: str
   error_message: Optional[str] = None
+  queued_programs: List[QueuedProgram] = dataclasses.field(default_factory=list)
 
 
 class MetricName(enum.Enum):
@@ -119,6 +129,7 @@ VALID_METRICS = {
     "core_state",
     "sequencer_state",
     "sequencer_state_detailed",
+    "queued_programs",
 }
 
 LIBTPU_METRIC_MAP = {
@@ -365,6 +376,16 @@ def get_tpuz_info(
           )
       )
 
+    queued_programs = []
+    for prog_info in core_summary.queued_program_info:
+      queued_programs.append(
+          QueuedProgram(
+              run_id=prog_info.run_id,
+              launch_id=prog_info.launch_id,
+              program_fingerprint=prog_info.program_fingerprint.hex(),
+          )
+      )
+
     # Parse core information.
     core_state = CoreState(
         global_core_id=core_id,
@@ -380,6 +401,7 @@ def get_tpuz_info(
             core_summary.error_message if core_summary.HasField("error_message")
             else None
         ),
+        queued_programs=queued_programs,
     )
     core_states.append(core_state)
 

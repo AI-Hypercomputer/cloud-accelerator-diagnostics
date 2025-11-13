@@ -338,6 +338,7 @@ def get_metric_table(
       "core_state": get_tpuz_core_state,
       "sequencer_state": get_tpuz_sequencer_state,
       "sequencer_state_detailed": lambda: get_tpuz_sequencer_state(detailed_info=True),
+      "queued_programs": get_tpuz_queued_programs,
   }
   renderables.extend(metric_functions[metric_name]())
   return renderables
@@ -447,6 +448,60 @@ def get_tpuz_sequencer_state(
               str(sequencer.hlo_detailed_info),
           ]
         table.add_row(*data_row)
+  except grpc.RpcError as e:
+    exception_message: str
+    exception_renderable: panel.Panel
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+      exception_message = (
+          "TPUz info unavailable. Is there a framework using the"
+          " TPU? See"
+          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          "tree/main/tpu_info]tpu_info docs[/link]"
+          " for more information."
+      )
+      exception_renderable = panel.Panel(
+          f"[yellow]WARNING:[/yellow] {exception_message}",
+          title="[b]TPUz Status[/b]",
+          border_style="yellow",
+      )
+    else:
+      exception_message = f"ERROR fetching TPUz info: {e}"
+      exception_renderable = panel.Panel(
+          f"[red]{exception_message}[/red]",
+          title="[b]TPUz Error[/b]",
+          border_style="red",
+      )
+    renderables.append(exception_renderable)
+
+  renderables.append(table)
+  return renderables
+
+
+def get_tpuz_queued_programs() -> List[console.RenderableType]:
+  """Returns a table with the TPUz queued programs info."""
+  data_columns = [
+      "Chip ID",
+      "Global Core ID",
+      "Run ID",
+      "Launch ID",
+      "Program Fingerprint",
+  ]
+  table = render_empty_table_with_columns(
+      title="TPUz Queued Programs",
+      columns=data_columns,
+  )
+  renderables: List[console.RenderableType] = []
+  try:
+    core_states = metrics.get_tpuz_info(include_hlo_info=False)
+    for core_state in core_states:
+      for program in core_state.queued_programs:
+        table.add_row(
+            str(core_state.chip_id),
+            str(core_state.global_core_id),
+            str(program.run_id),
+            str(program.launch_id),
+            str(program.program_fingerprint),
+        )
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
