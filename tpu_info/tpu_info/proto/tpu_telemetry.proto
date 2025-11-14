@@ -1,0 +1,102 @@
+// Copyright 2025 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package tpu_telemetry;
+
+// Duped from google3/learning/brain/tpu/runtime/tpu_chip_enums.proto
+// A protobuf mirror of the C++ TpuCoreType enum.
+enum TpuCoreTypeProto {
+  TPU_CORE_TYPE_INVALID = 0;
+  TPU_CORE_TYPE_TENSOR_CORE = 1;
+  TPU_CORE_TYPE_SPARSE_CORE_V0 = 2;
+  TPU_CORE_TYPE_SPARSE_CORE = 3;
+}
+
+// Identifies a core within a chip.
+message TpuCoreOnChipProto {
+  optional TpuCoreTypeProto type = 1;
+  optional int32 index = 2;
+}
+
+// Duped from google3/learning/brain/tpu/runtime/tpu_chip_enums.proto
+// A protobuf mirror of the C++ TpuSequencerType enum.
+enum TpuSequencerTypeProto {
+  TPU_SEQUENCER_TYPE_INVALID = 0;
+  TPU_SEQUENCER_TYPE_TENSOR_CORE_SEQUENCER = 1;
+  TPU_SEQUENCER_TYPE_SPARSE_CORE_V0_SEQUENCER = 2;
+  TPU_SEQUENCER_TYPE_SPARSE_CORE_V0_ADDRESS_HANDLER = 3;
+  TPU_SEQUENCER_TYPE_SPARSE_CORE_SEQUENCER = 4;
+  TPU_SEQUENCER_TYPE_SPARSE_CORE_TILE_ACCESS_CORE_SEQUENCER = 5;
+  TPU_SEQUENCER_TYPE_SPARSE_CORE_TILE_EXECUTE_CORE_SEQUENCER = 6;
+}
+
+// Uniquely identifies a single core within a TPU system.
+message TpuCoreIdentifier {
+  optional int32 global_core_id = 1;
+  optional int32 chip_id = 2;
+  optional TpuCoreOnChipProto core_on_chip = 3;
+}
+
+// Information about a program that is queued for execution on a core.
+message QueuedProgramInfo {
+  optional int64 run_id = 1;
+  optional int64 launch_id = 2;
+  optional bytes program_fingerprint = 3;
+}
+
+// Information about the state of a single sequencer on a core.
+message SequencerInfo {
+  // The type of the sequencer.
+  optional TpuSequencerTypeProto sequencer_type = 1;
+  // The index of the sequencer on the core.
+  optional int32 sequencer_index = 2;
+  // The current program counter (PC) value.
+  optional int64 pc = 3;
+  // The current tag value.
+  optional int64 tag = 4;
+  // The current tracemark value.
+  optional int64 tracemark = 5;
+  // The ID of the program currently being executed.
+  optional int64 program_id = 6;
+  // The run ID of the current execution.
+  optional int64 run_id = 7;
+  // A string representation of the high-level symbolic location (e.g., HLO
+  // operation name and source line) corresponding to the current PC.
+  optional string hlo_location = 8;
+  // Additional formatted details about the HLO instruction, often including
+  // the full HLO instruction string and other context. The return format is a
+  // JSON array.
+  optional string hlo_detailed_info = 9;
+}
+
+// A summary of the current state of a single TPU core.
+message CurrentCoreStateSummary {
+  optional TpuCoreIdentifier core_id = 1;
+  repeated SequencerInfo sequencer_info = 2;
+  optional bool xdb_server_running = 3;
+  optional bytes program_fingerprint = 4;
+  optional int32 launch_id = 5;
+  repeated QueuedProgramInfo queued_program_info = 6;
+
+  // Detailed error message if any.
+  optional string error_message = 7;
+}
+
+// A collection of state summaries for all cores in a system.
+message AllCoreStateSummaries {
+  // Map from a unique Global Core ID to the state of that core.
+  map<int32, CurrentCoreStateSummary> core_states = 1;
+}
