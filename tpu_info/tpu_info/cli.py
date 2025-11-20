@@ -113,11 +113,12 @@ def print_chip_info():
     return
 
   if cli_args.list_metrics:
+    # Sort metrics for consistency.
     console_obj.print(
         panel.Panel(
             "\n".join(
                 f"\t{metric}"
-                for metric in metrics.VALID_METRICS
+                for metric in sorted(metrics.VALID_METRICS)
             ),
             title="[b]Supported Metrics[/b]",
             title_align="left",
@@ -125,7 +126,6 @@ def print_chip_info():
     )
     return
 
-  # TODO(wcromar): Merge all of this info into one table
   chip_type, count = device.get_local_chips()
   if not chip_type:
     print("No TPU chips found.")
