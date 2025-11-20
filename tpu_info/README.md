@@ -26,16 +26,17 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.7.0
+## What's New in Version 0.7.1
 
 🚀 **New Features**
 
-* New tables available for TPUz metrics
-  - Core States: under `core_state` metric
-  - Sequencer States: under `sequencer_state` and `sequencer_state_detailed`
-    metrics
-  - Queued Programs: under `queued_programs` metric
-* Fixes bug so more than 9 cores are displayed with their VFIO paths & PIDs
+* Metrics from `--list_metrics` are sorted in lexicographical order
+* Removes some metrics that appear in `--list_metrics` but are not yet supported
+  - `grpc_client_call_latency`
+  - `grpc_server_call_latency`
+  - `grpc_tcp_packets_sent`
+  - `grpc_tcp_packets_spurious_retransmitted`
+  - `grpc_tcp_packets_retransmitted`
 
 ***
 
@@ -248,12 +249,8 @@ $ tpu-info --list_metrics
 ╭─ Supported Metrics ─────────────────────────────────────────────────────────────────────────────╮
 │         grpc_tcp_min_rtt                                                                        │
 │         host_to_device_transfer_latency                                                         │
-│         grpc_server_call_latency                                                                │
-│         grpc_tcp_packets_spurious_retransmitted                                                 │
 │         grpc_tcp_delivery_rate                                                                  │
 │         buffer_transfer_latency                                                                 │
-│         grpc_client_call_latency                                                                │
-│         grpc_tcp_packets_retransmitted                                                          │
 │         collective_e2e_latency                                                                  │
 │         device_to_host_transfer_latency                                                         │
 │         hbm_usage                                                                               │
