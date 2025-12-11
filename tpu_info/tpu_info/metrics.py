@@ -80,6 +80,7 @@ class MetricName(enum.Enum):
   COLLECTIVE_E2E_LATENCY_US = "megascale.collective_end_to_end_latencies.microsecond.cumulative.distribution"
   GRPC_TCP_MIN_RTT_US = "megascale.grpc_tcp_min_rtt.microsecond.cumulative.distribution"
   GRPC_TCP_DELIVERY_RATE_MBPS = "megascale.grpc_tcp_delivery_rate.Mbps.cumulative.distribution"
+  HLO_QUEUE_SIZE = "hlo.queue.size.gauge"
 
 
 class Usage(typing.NamedTuple):
@@ -89,6 +90,13 @@ class Usage(typing.NamedTuple):
   memory_usage: int
   total_memory: int
   duty_cycle_pct: float
+
+
+class HloQueueSize(typing.NamedTuple):
+  """HLO queue size measurements for a TPU device."""
+
+  device_id: int
+  queue_size: int
 
 
 class TransferLatencyDistribution(typing.NamedTuple):
@@ -113,6 +121,7 @@ METRIC_FILTER_SCHEMA = {
 # A set of all valid metric names for quick lookup.
 VALID_METRICS = {
     "hbm_usage",
+    "hlo_queue_size",
     "duty_cycle_percent",
     "tensorcore_utilization",
     "buffer_transfer_latency",
@@ -138,6 +147,7 @@ LIBTPU_METRIC_MAP = {
     "collective_e2e_latency": MetricName.COLLECTIVE_E2E_LATENCY_US.value,
     "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
+    "hlo_queue_size": MetricName.HLO_QUEUE_SIZE.value,
 }
 
 
@@ -240,6 +250,45 @@ def get_chip_usage(
       )
       for u, t, d in zip(usages, totals, duty_cycle_pct_per_core)
   ]
+
+
+def get_hlo_queue_size(
+    chip_type: device.TpuChip,
+    addr: str = "localhost:8431",
+) -> List[HloQueueSize]:
+  """Gets HLO queue size statistics for all attached TPU devices.
+
+  Args:
+    chip_type: TPU chip version.
+    addr: GRPC address of libtpu metrics server.
+
+  Returns:
+    List of HLO queue size statistics for each TPU device.
+  """
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+
+  resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
+      tpu_metrics.MetricRequest(metric_name=MetricName.HLO_QUEUE_SIZE.value)
+  )
+  # Create list of results then later sort the results
+  results = []
+  for m in resp.metric.metrics:
+    # Note: getting the device_id differs from other metrics (like MEMORY_USAGE)
+    for attr in m.attribute.value.kvlist_attr.attributes:
+      # Has at least device_ordinal and core_type as attributes.
+      if attr.key == "device_ordinal":
+        device_id = int(attr.value.string_attr)
+        results.append(
+            HloQueueSize(
+                device_id,
+                m.gauge.as_int,
+            )
+        )
+        break
+
+  sorted_results = sorted(results, key=lambda r: r.device_id)
+  return sorted_results
 
 
 def _get_percentile(

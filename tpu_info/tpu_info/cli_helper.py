@@ -329,6 +329,7 @@ def get_metric_table(
       "tensorcore_utilization": lambda: [
           TensorCoreUtilizationTable().render(count)
       ],
+      "hlo_queue_size": lambda: get_hlo_queue_size_table(chip_type, count),
       "buffer_transfer_latency": transfer_latency_function,
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
@@ -539,6 +540,54 @@ def render_empty_table_with_columns(
   for column in columns:
     table.add_column(column)
   return table
+
+
+def get_hlo_queue_size_table(
+    chip_type: device.TpuChip,
+    count: int,
+) -> List[console.RenderableType]:
+  """Returns a table with the HLO queue size info."""
+  table = render_empty_table_with_columns(
+      "HLO Queue Size", ["Device", "Queue Size"]
+  )
+  renderables: List[console.RenderableType] = []
+
+  try:
+    queue_sizes = metrics.get_hlo_queue_size(chip_type)
+    if queue_sizes:
+      for qs in queue_sizes:
+        table.add_row(str(qs.device_id), str(qs.queue_size))
+    else:
+      for device_id in range(count):
+        table.add_row(str(device_id), "N/A")
+    renderables.append(table)
+
+  except grpc.RpcError as e:
+    exception_message: str
+    exception_renderable: panel.Panel
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+      exception_message = (
+          "HLO queue size metrics unavailable. Is there a framework using the"
+          " TPU? See"
+          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          "tree/main/tpu_info]tpu_info docs[/link]"
+          " for more information."
+      )
+      exception_renderable = panel.Panel(
+          f"[yellow]WARNING:[/yellow] {exception_message}",
+          title="[b]HLO Queue Size Status[/b]",
+          border_style="yellow",
+      )
+    else:
+      exception_message = f"ERROR fetching HLO queue size: {e}"
+      exception_renderable = panel.Panel(
+          f"[red]{exception_message}[/red]",
+          title="[b]HLO Queue Size Error[/b]",
+          border_style="red",
+      )
+    renderables.append(exception_renderable)
+
+  return renderables
 
 
 def get_hbm_usage_table(
