@@ -81,6 +81,9 @@ class MetricName(enum.Enum):
   GRPC_TCP_MIN_RTT_US = "megascale.grpc_tcp_min_rtt.microsecond.cumulative.distribution"
   GRPC_TCP_DELIVERY_RATE_MBPS = "megascale.grpc_tcp_delivery_rate.Mbps.cumulative.distribution"
   HLO_QUEUE_SIZE = "hlo.queue.size.gauge"
+  HLO_EXECUTION_TIMING_DISTRIBUTION_MICROSECONDS = (
+      "hlo.execution.timing.distribution.microseconds"
+  )
 
 
 class Usage(typing.NamedTuple):
@@ -97,6 +100,17 @@ class HloQueueSize(typing.NamedTuple):
 
   device_id: int
   queue_size: int
+
+
+class HloExecutionTiming(typing.NamedTuple):
+  """HLO execution timing measurements for a TPU device."""
+
+  device_id: int
+  mean: float
+  p50: float
+  p90: float
+  p95: float
+  p999: float
 
 
 class TransferLatencyDistribution(typing.NamedTuple):
@@ -122,6 +136,7 @@ METRIC_FILTER_SCHEMA = {
 VALID_METRICS = {
     "hbm_usage",
     "hlo_queue_size",
+    "hlo_exec_timing",
     "duty_cycle_percent",
     "tensorcore_utilization",
     "buffer_transfer_latency",
@@ -148,6 +163,9 @@ LIBTPU_METRIC_MAP = {
     "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
     "hlo_queue_size": MetricName.HLO_QUEUE_SIZE.value,
+    "hlo_exec_timing": (
+        MetricName.HLO_EXECUTION_TIMING_DISTRIBUTION_MICROSECONDS.value
+    ),
 }
 
 
@@ -289,6 +307,68 @@ def get_hlo_queue_size(
 
   sorted_results = sorted(results, key=lambda r: r.device_id)
   return sorted_results
+
+
+def get_hlo_exec_timing(
+    chip_type: device.TpuChip,
+    addr: str = "localhost:8431",
+) -> List[HloExecutionTiming]:
+  """Gets HLO execution timing statistics for all attached TPU devices.
+
+  Args:
+    chip_type: TPU chip version.
+    addr: GRPC address of libtpu metrics server.
+
+  Returns:
+    List of HLO execution timing statistics for each TPU device.
+  """
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+
+  resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
+      tpu_metrics.MetricRequest(
+          metric_name=MetricName.HLO_EXECUTION_TIMING_DISTRIBUTION_MICROSECONDS.value
+      )
+  )
+
+  hlo_exec_timings = []
+  for metric in resp.metric.metrics:
+    # Note: getting the device_id differs from other metrics (like MEMORY_USAGE)
+    for attr in metric.attribute.value.kvlist_attr.attributes:
+      # Has at least device_ordinal and core_type as attributes.
+      if attr.key == "device_ordinal":
+        device_id = int(attr.value.string_attr)
+
+        distribution = metric.distribution
+        bucket = list(distribution.bucket_counts)
+        count = distribution.count
+        scale = distribution.bucket_options.exponential_buckets.scale
+        growth_factor = (
+            distribution.bucket_options.exponential_buckets.growth_factor
+        )
+        p50_count = int(count * 0.5)
+        p90_count = int(count * 0.9)
+        p95_count = int(count * 0.95)
+        p999_count = int(count * 0.999)
+
+        p50 = _get_percentile(p50_count, count, bucket, scale, growth_factor)
+        p90 = _get_percentile(p90_count, count, bucket, scale, growth_factor)
+        p95 = _get_percentile(p95_count, count, bucket, scale, growth_factor)
+        p999 = _get_percentile(p999_count, count, bucket, scale, growth_factor)
+
+        hlo_exec_timings.append(
+            HloExecutionTiming(
+                device_id,
+                distribution.mean,
+                p50,
+                p90,
+                p95,
+                p999,
+            )
+        )
+        break
+
+  return sorted(hlo_exec_timings, key=lambda x: x.device_id)
 
 
 def _get_percentile(

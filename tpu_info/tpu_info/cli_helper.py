@@ -330,6 +330,7 @@ def get_metric_table(
           TensorCoreUtilizationTable().render(count)
       ],
       "hlo_queue_size": lambda: get_hlo_queue_size_table(chip_type, count),
+      "hlo_exec_timing": lambda: get_hlo_exec_timing_table(chip_type, count),
       "buffer_transfer_latency": transfer_latency_function,
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
@@ -583,6 +584,61 @@ def get_hlo_queue_size_table(
       exception_renderable = panel.Panel(
           f"[red]{exception_message}[/red]",
           title="[b]HLO Queue Size Error[/b]",
+          border_style="red",
+      )
+    renderables.append(exception_renderable)
+
+  return renderables
+
+
+def get_hlo_exec_timing_table(
+    chip_type: device.TpuChip,
+    count: int,
+) -> List[console.RenderableType]:
+  """Returns a table with the HLO execution timing info."""
+  table = render_empty_table_with_columns(
+      "HLO Execution Timing", ["Device", "Mean", "P50", "P90", "P95", "P999"]
+  )
+  renderables: List[console.RenderableType] = []
+
+  try:
+    timings = metrics.get_hlo_exec_timing(chip_type)
+    if timings:
+      for t in timings:
+        table.add_row(
+            str(t.device_id),
+            f"{t.mean:.2f}",
+            f"{t.p50:.2f}",
+            f"{t.p90:.2f}",
+            f"{t.p95:.2f}",
+            f"{t.p999:.2f}",
+        )
+    else:
+      for device_id in range(count):
+        table.add_row(str(device_id), "N/A", "N/A", "N/A", "N/A", "N/A")
+    renderables.append(table)
+
+  except grpc.RpcError as e:
+    exception_message: str
+    exception_renderable: panel.Panel
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+      exception_message = (
+          "HLO execution timing metrics unavailable. Is there a framework using"
+          " the TPU? See"
+          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          "tree/main/tpu_info]tpu_info docs[/link]"
+          " for more information."
+      )
+      exception_renderable = panel.Panel(
+          f"[yellow]WARNING:[/yellow] {exception_message}",
+          title="[b]HLO Execution Timing Status[/b]",
+          border_style="yellow",
+      )
+    else:
+      exception_message = f"ERROR fetching HLO execution timing: {e}"
+      exception_renderable = panel.Panel(
+          f"[red]{exception_message}[/red]",
+          title="[b]HLO Execution Timing Error[/b]",
           border_style="red",
       )
     renderables.append(exception_renderable)
