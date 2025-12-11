@@ -26,17 +26,16 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.7.1
+## What's New in Version 0.8.0
 
 🚀 **New Features**
 
-* Metrics from `--list_metrics` are sorted in lexicographical order
-* Removes some metrics that appear in `--list_metrics` but are not yet supported
-  - `grpc_client_call_latency`
-  - `grpc_server_call_latency`
-  - `grpc_tcp_packets_sent`
-  - `grpc_tcp_packets_spurious_retransmitted`
-  - `grpc_tcp_packets_retransmitted`
+*   Adds `hlo_exec_timing` metric: Records timing statistics for HLO programs
+    running on TPUs. The duration is calculated as the interval between the
+    enqueue timestamp (ready for execution) and the dequeue timestamp
+    (execution complete).
+*   Adds `hlo_queue_size` metric: Reports the number of HLO programs that are
+    waiting for execution or have not yet completed execution on TPU devices.
 
 ***
 
@@ -204,7 +203,7 @@ type of the TPU chip, use the `--version` or `-v` flag.
 ##### Compatible Environment:
 ```bash
 $ tpu-info --version
-- tpu-info version: 0.5.1
+- tpu-info version: 0.8.0
 - libtpu version: 0.0.18
 - accelerator type: v6e
 ```
@@ -212,7 +211,7 @@ $ tpu-info --version
 ##### Incompatible Environment (Python 3.12+):
 ```bash
 $ tpu-info --version
-- tpu-info version: 0.5.1
+- tpu-info version: 0.8.0
 - libtpu version: N/A (incompatible environment)
 - accelerator type: N/A (incompatible environment)
 ```
@@ -247,19 +246,21 @@ be given along with the `--metric` flag.
 ```bash
 $ tpu-info --list_metrics
 ╭─ Supported Metrics ─────────────────────────────────────────────────────────────────────────────╮
-│         grpc_tcp_min_rtt                                                                        │
-│         host_to_device_transfer_latency                                                         │
-│         grpc_tcp_delivery_rate                                                                  │
 │         buffer_transfer_latency                                                                 │
 │         collective_e2e_latency                                                                  │
-│         device_to_host_transfer_latency                                                         │
-│         hbm_usage                                                                               │
-│         grpc_tcp_packets_sent                                                                   │
-│         duty_cycle_percent                                                                      │
 │         core_state                                                                              │
+│         device_to_host_transfer_latency                                                         │
+│         duty_cycle_percent                                                                      │
+│         grpc_tcp_delivery_rate                                                                  │
+│         grpc_tcp_min_rtt                                                                        │
+│         hbm_usage                                                                               │
+│         hlo_exec_timing                                                                         │
+│         hlo_queue_size                                                                          │
+│         host_to_device_transfer_latency                                                         │
+│         queued_programs                                                                         │
 │         sequencer_state                                                                         │
 │         sequencer_state_detailed                                                                │
-│         queued_programs                                                                         │
+│         tensorcore_utilization                                                                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -297,6 +298,5 @@ TPU HBM Usage
 │ 7      │ 21.50 GiB / 31.25 GiB │
 └────────┴───────────────────────┘
 ```
-
 
 [^1]: Releases from before 2024 may not be compatible.
