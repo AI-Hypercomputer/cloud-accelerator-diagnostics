@@ -21,15 +21,31 @@ import glob
 import os
 import pathlib
 import re
+import sys
 import typing
-from typing import Dict, Literal, Optional, Tuple
+from typing import Dict, Literal, Optional, Tuple, TypeVar
 
 GOOGLE_PCI_VENDOR_ID = "0x1ae0"
+
+_T = TypeVar("_T")
+
+
+def _identity(item: _T) -> _T:
+  return item
+
+
+# pytype: disable=not-supported-yet
+# enum.nonmember is only available since Python 3.11.
+nonmember = enum.nonmember if sys.version_info >= (3, 11) else _identity
+# pytype: enable=not-supported-yet
 
 
 class TpuChip(enum.Enum):
   """TPU chip versions and basic specs."""
 
+  # Use nonmember to prevent this nested class from becoming an enum member
+  # (which is deprecated and generates a deprecation warning in Python 3.11+).
+  @nonmember
   class Info(typing.NamedTuple):
     """Specs for a specific TPU chip version."""
 
