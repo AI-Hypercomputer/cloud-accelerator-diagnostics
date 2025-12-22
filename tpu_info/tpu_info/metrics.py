@@ -291,16 +291,32 @@ def get_hlo_queue_size(
   )
   # Create list of results then later sort the results
   results = []
-  for m in resp.metric.metrics:
+  for metric in resp.metric.metrics:
     # Note: getting the device_id differs from other metrics (like MEMORY_USAGE)
-    for attr in m.attribute.value.kvlist_attr.attributes:
+    for attr in metric.attribute.value.kvlist_attr.attributes:
       # Has at least device_ordinal and core_type as attributes.
       if attr.key == "device_ordinal":
-        device_id = int(attr.value.string_attr)
+        value_type = attr.value.WhichOneof("attr")
+        if value_type == "string_attr":  # Newer libtpu versions use string_attr
+          string_value = attr.value.string_attr
+          # Expects to be an integer (no decimal point).
+          if string_value.isdigit():
+            device_id = int(string_value)
+          else:  # Should not happen presumably.
+            raise ValueError(
+                f"device_ordinal string_attr is not a digit: {string_value}"
+            )
+        elif value_type == "int_attr":  # Older libtpu version uses int_attr
+          device_id = attr.value.int_attr
+        else:
+          raise TypeError(
+              f"Unexpected type for device_ordinal attribute: {value_type}"
+          )
+
         results.append(
             HloQueueSize(
                 device_id,
-                m.gauge.as_int,
+                metric.gauge.as_int,
             )
         )
         break
@@ -337,7 +353,22 @@ def get_hlo_exec_timing(
     for attr in metric.attribute.value.kvlist_attr.attributes:
       # Has at least device_ordinal and core_type as attributes.
       if attr.key == "device_ordinal":
-        device_id = int(attr.value.string_attr)
+        value_type = attr.value.WhichOneof("attr")
+        if value_type == "string_attr":  # Newer libtpu versions use string_attr
+          string_value = attr.value.string_attr
+          # Expects to be an integer (no decimal point).
+          if string_value.isdigit():
+            device_id = int(string_value)
+          else:  # Should not happen presumably.
+            raise ValueError(
+                f"device_ordinal string_attr is not a digit: {string_value}"
+            )
+        elif value_type == "int_attr":  # Older libtpu version uses int_attr
+          device_id = attr.value.int_attr
+        else:
+          raise TypeError(
+              f"Unexpected type for device_ordinal attribute: {value_type}"
+          )
 
         distribution = metric.distribution
         bucket = list(distribution.bucket_counts)
