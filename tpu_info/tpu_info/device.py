@@ -109,6 +109,24 @@ class ChipInfo:
   cores: dict[int, CoreInfo] = dataclasses.field(default_factory=dict)
 
 
+def _chip_sort_key(chip: ChipInfo) -> list[str | int]:
+  """Returns a sort key for a chip based on zero-indexed core's vfio path."""
+  if 0 in chip.cores:
+    path = chip.cores[0].vfio_path
+  elif not chip.cores:
+    path = ""
+  else:
+    path = next(iter(chip.cores.values())).vfio_path
+
+  # Split the string by integers: 'dev/vfio/10' -> ['dev/vfio/', 10,]
+  # Structure supports comparing single digit & double digit numbers correctly
+  path_parts = [
+      int(text) if text.isdigit() else text
+      for text in re.split(r"(\d+)", path)
+  ]
+  return path_parts
+
+
 def get_chips() -> list[ChipInfo]:
   """Returns the list of information about chips with core information."""
   pci_devices_path = "/sys/bus/pci/devices/*"
@@ -162,19 +180,10 @@ def get_chips() -> list[ChipInfo]:
     except IOError:
       continue
 
-  # Sort the chips by the chip's zero-indexed core's vfio path.
-  def chip_sort_key(chip: ChipInfo) -> str:
-    # lambda chip: chip.cores[0].vfio_path
-    if 0 in chip.cores:
-      return chip.cores[0].vfio_path
-    elif not chip.cores:
-      return ""
-    else:
-      return next(iter(chip.cores.values())).vfio_path
-
+  # Sort chips by the chip's zero-indexed core's vfio path in numerical order.
   chips = sorted(
       chips_by_base_addr.values(),
-      key=chip_sort_key,
+      key=_chip_sort_key,
   )
   return chips
 
