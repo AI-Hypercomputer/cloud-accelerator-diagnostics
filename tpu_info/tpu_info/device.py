@@ -109,7 +109,7 @@ class ChipInfo:
   cores: dict[int, CoreInfo] = dataclasses.field(default_factory=dict)
 
 
-def get_actual_chips() -> list[ChipInfo]:
+def get_chips() -> list[ChipInfo]:
   """Returns the list of information about chips with core information."""
   pci_devices_path = "/sys/bus/pci/devices/*"
   # Organize chips by base address & associate cores/devices with chips.

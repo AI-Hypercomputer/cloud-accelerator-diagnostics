@@ -750,30 +750,7 @@ def get_device_usage(
 
 
 class TpuChipsTable:
-  """Renders a table with TPU chip information."""
-
-  def render(self, chip_type: Any, count: int) -> console.RenderableType:
-    """Creates a Rich Table with TPU chip information."""
-    table = render_empty_table_with_columns(
-        "TPU Chips", ["Chip", "Type", "Devices", "PID"]
-    )
-
-    chip_paths = [device.chip_path(chip_type, index) for index in range(count)]
-    chip_owners = device.get_chip_owners()
-
-    for chip in chip_paths:
-      owner = chip_owners.get(chip)
-      table.add_row(
-          chip,
-          str(chip_type),
-          str(chip_type.value.devices_per_chip),
-          str(owner),
-      )
-    return table
-
-
-class ActualTpuChipsTable:
-  """Renders a table with TPU chip information from actual devices found."""
+  """Renders a table with TPU chip information from devices found."""
 
   def get_representative_core(
       self,
@@ -864,7 +841,7 @@ class ActualTpuChipsTable:
     return table
 
 
-class NewTpuRuntimeUtilizationTable:
+class TpuRuntimeUtilizationTable:
   """Renders a table with TPU runtime utilization metrics."""
 
   def render(self, chip_type: Any, count: int) -> List[console.RenderableType]:
@@ -898,49 +875,6 @@ class NewTpuRuntimeUtilizationTable:
             str(device_id),
             "N/A",
             "N/A",
-        )
-
-    renderables.append(table)
-    return renderables
-
-
-class TpuRuntimeUtilizationTable:
-  """Renders a table with TPU runtime utilization metrics."""
-
-  def render(self, chip_type: Any, count: int) -> List[console.RenderableType]:
-    """Creates a Rich Table or Panel for TPU runtime utilization."""
-    renderables: List[console.RenderableType] = []
-
-    table = render_empty_table_with_columns(
-        "TPU Runtime Utilization", ["Chip", "HBM Usage (GiB)", "Duty cycle"]
-    )
-    # TODO(wcromar): take alternative ports as a flag
-    # print("Connected to libtpu at grpc://localhost:8431...")
-
-    device_usage = get_device_usage(chip_type)
-    devices_per_chip = chip_type.value.devices_per_chip
-
-    if isinstance(device_usage, List):
-      for chip in device_usage:
-        memory_usage = (
-            f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
-            f" {_bytes_to_gib(chip.total_memory):.2f} GiB"
-        )
-        duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
-        table.add_row(
-            str(chip.device_id),
-            memory_usage,
-            duty_cycle_pct
-            if devices_per_chip == 1 or chip.device_id % 2 == 0
-            else "",
-        )
-    else:
-      renderables.append(device_usage)
-      for device_id in range(count):
-        table.add_row(
-            str(device_id),
-            "N/A",
-            "N/A" if devices_per_chip == 1 or device_id % 2 == 0 else "",
         )
 
     renderables.append(table)

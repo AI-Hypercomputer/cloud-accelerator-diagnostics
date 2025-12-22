@@ -40,31 +40,28 @@ MIN_REFRESH_RATE_SECONDS = 1.0 / 30
 
 
 def _fetch_and_render_tables(
-    chip_type: Any, count: int
+    *,
+    chip_type: Any,
+    count: int,
 ) -> List[console.RenderableType]:
   """Fetches all TPU data and prepares a list of Rich Table objects for display."""
   renderables: List[console.RenderableType] = []
 
   renderables.append(cli_helper.get_tpu_cli_info())
 
-  # Different table for V7X due to two devices (cores) per chip.
-  if chip_type is device.TpuChip.V7X:
-    actual_chips = device.get_actual_chips()
-    renderables.append(
-        cli_helper.ActualTpuChipsTable().render(
-            chip_type=chip_type,
-            chip_info=actual_chips,
-            core_detail=False,
-        )
-    )
-    renderables.extend(
-        cli_helper.NewTpuRuntimeUtilizationTable().render(chip_type, count)
-    )
-  else:
-    renderables.append(cli_helper.TpuChipsTable().render(chip_type, count))
-    renderables.extend(
-        cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
-    )
+  chips = device.get_chips()
+  renderables.append(
+      cli_helper.TpuChipsTable().render(
+          chip_type=chip_type,
+          chip_info=chips,
+          core_detail=False,
+      )
+  )
+
+  renderables.extend(
+      cli_helper.TpuRuntimeUtilizationTable().render(chip_type, count)
+  )
+
   # Do not render this table if the Python version is incompatible.
   if not cli_helper.is_incompatible_python_version():
     renderables.append(cli_helper.TensorCoreUtilizationTable().render(count))
@@ -185,7 +182,7 @@ def print_chip_info():
     # rate.
     screen_refresh_per_second = min(max(4, int(target_screen_fps)), 30)
     try:
-      renderables = _fetch_and_render_tables(chip_type, count)
+      renderables = _fetch_and_render_tables(chip_type=chip_type, count=count)
       streaming_status = _get_runtime_info(cli_args.rate)
 
       if not renderables and chip_type:
@@ -208,7 +205,9 @@ def print_chip_info():
         while True:
           try:
             time.sleep(effective_rate)
-            new_renderables = _fetch_and_render_tables(chip_type, count)
+            new_renderables = _fetch_and_render_tables(
+                chip_type=chip_type, count=count
+            )
             streaming_status = _get_runtime_info(effective_rate)
             display = console.Group(
                 streaming_status, *(new_renderables if new_renderables else [])
@@ -231,7 +230,7 @@ def print_chip_info():
       )
 
   else:
-    renderables = _fetch_and_render_tables(chip_type, count)
+    renderables = _fetch_and_render_tables(chip_type=chip_type, count=count)
 
     if renderables:
       for item in renderables:
