@@ -26,16 +26,15 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.8.0
+## What's New in Version 0.8.1
 
 🚀 **New Features**
 
-*   Adds `hlo_exec_timing` metric: Records timing statistics for HLO programs
-    running on TPUs. The duration is calculated as the interval between the
-    enqueue timestamp (ready for execution) and the dequeue timestamp
-    (execution complete).
-*   Adds `hlo_queue_size` metric: Reports the number of HLO programs that are
-    waiting for execution or have not yet completed execution on TPU devices.
+* Metrics `hlo_exec_timing` & `hlo_queue_size` introduced in `0.8.0` work for
+  some older versions of `libtpu`
+  - It is still recommended to update to most recent `libtpu` version for full
+    support in all metrics available in `tpu-info`
+* Addresses a `DeprecationWarning` in Python 3.11+ related to classes in `enum`.
 
 ***
 
