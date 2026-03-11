@@ -26,6 +26,7 @@ from tpu_info import metrics
 import grpc
 from packaging import version
 from rich import align
+from rich import box
 from rich import console
 from rich import panel
 from rich import table as rich_table
@@ -281,7 +282,11 @@ def fetch_process_table(
     chip_type: device.TpuChip, count: int
 ) -> rich_table.Table:
   """Returns a rich.table.Table with process info for the given TPU chip."""
-  table = rich_table.Table(title="TPU Process Info", title_justify="left")
+  table = rich_table.Table(
+      title="TPU Process Info",
+      title_justify="left",
+      box=box.MARKDOWN,
+  )
   table.add_column("Chip")
   table.add_column("PID")
   table.add_column("Process Name")
@@ -339,7 +344,9 @@ def get_metric_table(
       "grpc_tcp_delivery_rate": transfer_latency_function,
       "core_state": get_tpuz_core_state,
       "sequencer_state": get_tpuz_sequencer_state,
-      "sequencer_state_detailed": lambda: get_tpuz_sequencer_state(detailed_info=True),
+      "sequencer_state_detailed": lambda: get_tpuz_sequencer_state(
+          detailed_info=True
+      ),
       "queued_programs": get_tpuz_queued_programs,
   }
   renderables.extend(metric_functions[metric_name]())
@@ -537,7 +544,11 @@ def render_empty_table_with_columns(
     title: str, columns: List[str]
 ) -> rich_table.Table:
   """Renders an empty table with the given columns and title."""
-  table = rich_table.Table(title=title, title_justify="left")
+  table = rich_table.Table(
+      title=title,
+      title_justify="left",
+      box=box.MARKDOWN,
+  )
   for column in columns:
     table.add_column(column)
   return table
