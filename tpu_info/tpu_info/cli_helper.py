@@ -375,7 +375,7 @@ def get_tpuz_core_state() -> List[console.RenderableType]:
       exception_message = (
           "TPUz info unavailable. Is there a framework using the"
           " TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          " [link=https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/"
           "tree/main/tpu_info]tpu_info docs[/link]"
           " for more information."
       )
@@ -457,7 +457,7 @@ def get_tpuz_sequencer_state(
       exception_message = (
           "TPUz info unavailable. Is there a framework using the"
           " TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          " [link=https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/"
           "tree/main/tpu_info]tpu_info docs[/link]"
           " for more information."
       )
@@ -511,7 +511,7 @@ def get_tpuz_queued_programs() -> List[console.RenderableType]:
       exception_message = (
           "TPUz info unavailable. Is there a framework using the"
           " TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          " [link=https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/"
           "tree/main/tpu_info]tpu_info docs[/link]"
           " for more information."
       )
@@ -570,7 +570,7 @@ def get_hlo_queue_size_table(
       exception_message = (
           "HLO queue size metrics unavailable. Is there a framework using the"
           " TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          " [link=https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/"
           "tree/main/tpu_info]tpu_info docs[/link]"
           " for more information."
       )
@@ -625,7 +625,7 @@ def get_hlo_exec_timing_table(
       exception_message = (
           "HLO execution timing metrics unavailable. Is there a framework using"
           " the TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          " [link=https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/"
           "tree/main/tpu_info]tpu_info docs[/link]"
           " for more information."
       )
@@ -728,7 +728,7 @@ def get_device_usage(
       exception_message = (
           "Libtpu metrics unavailable. Is there a framework using the"
           " TPU? See"
-          " [link=https://github.com/google/cloud-accelerator-diagnostics/"
+          " [link=https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/"
           "tree/main/tpu_info]tpu_info docs[/link]"
           " for more information."
       )

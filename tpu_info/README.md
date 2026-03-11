@@ -49,7 +49,7 @@ pip install tpu-info
 Alternatively, install `tpu-info` from source:
 
 ```bash
-pip install git+https://github.com/google/cloud-accelerator-diagnostics/#subdirectory=tpu_info
+pip install git+https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/#subdirectory=tpu_info
 ```
 
 ***

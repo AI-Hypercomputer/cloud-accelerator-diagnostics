@@ -36,8 +36,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/google/cloud-accelerator-diagnostics"
-"Bug Tracker" = "https://github.com/google/cloud-accelerator-diagnostics/issues"
+"Homepage" = "https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics"
+"Bug Tracker" = "https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/issues"
 
 [build-system]
 # Build system specify which backend is used to build/install the project

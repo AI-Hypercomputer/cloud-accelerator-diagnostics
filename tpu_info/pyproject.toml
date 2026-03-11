@@ -35,8 +35,8 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.8"
 
 [project.urls]
-homepage = "https://github.com/google/cloud-accelerator-diagnostics/tree/main/tpu_info"
-repository = "https://github.com/google/cloud-accelerator-diagnostics"
+homepage = "https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics/tree/main/tpu_info"
+repository = "https://github.com/AI-Hypercomputer/cloud-accelerator-diagnostics"
 
 [project.optional-dependencies]
 test = [
