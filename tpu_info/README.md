@@ -26,12 +26,12 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.9.0
+## What's New in Version 0.10.0
 
 🚀 **New Features**
 
-* Chips represented in numerical order (instead of lexicographically)
-* Markdown boxes for tables to allow easier to scripting
+* Adds `inbound_buffer_transfer_latency` metric: Tracks the latency of inbound buffer transfers
+* Adds `host_compute_latency` metric: Tracks the host compute latency
 ***
 
 ## Installing
@@ -114,6 +114,20 @@ TPU Buffer Transfer Latency
 | 8MB+         | 108978.82 us | 164849.81 us | 177366.42 us | 212419.07 us |
 | 4MB+         | 21739.38 us  | 38126.84 us  | 42110.12 us  | 55474.21 us  |
 
+TPU Inbound Buffer Transfer Latency
+
+| Buffer Size  | P50          | P90          | P95          | P999         |
+|--------------|--------------|--------------|--------------|--------------|
+| 8MB+         | 18945.59 us  | 34461.46 us  | 39652.74 us  | 56051.94 us  |
+| 4MB+         | 4829.09 us   | 8594.43 us   | 10236.53 us  | 17754.86 us  |
+
+TPU Host Compute Latency
+
+| Buffer Size  | P50          | P90          | P95          | P999         |
+|--------------|--------------|--------------|--------------|--------------|
+| 8MB+         | 998.17 us    | 3605.34 us   | 6292.10 us   | 11608.01 us  |
+| 4MB+         | 678.33 us    | 2611.93 us   | 5258.30 us   | 11083.23 us  |
+
 TPU gRPC TCP Minimum RTT
 
 | P50      | P90      | P95      | P999     |
@@ -175,6 +189,18 @@ TPU Buffer Transfer Latency
 | Buffer Size  | P50          | P90          | P95          | P999         |
 |--------------|--------------|--------------|--------------|--------------|
 | 8MB+         | 18264.03 us  | 33263.06 us  | 35990.98 us  | 53997.32 us  |
+
+TPU Inbound Buffer Transfer Latency
+
+| Buffer Size  | P50          | P90          | P95          | P999         |
+|--------------|--------------|--------------|--------------|--------------|
+| 8MB+         | 18316.95 us  | 32857.03 us  | 36501.59 us  | 58854.54 us  |
+
+TPU Host Compute Latency
+
+| Buffer Size  | P50          | P90          | P95          | P999         |
+|--------------|--------------|--------------|--------------|--------------|
+| 8MB+         | 678.33 us    | 2611.93 us   | 5258.30 us   | 11083.23 us  |
 
 TPU gRPC TCP Minimum RTT
 
@@ -249,7 +275,9 @@ $ tpu-info --list_metrics
 │         hbm_usage                                                                               │
 │         hlo_exec_timing                                                                         │
 │         hlo_queue_size                                                                          │
+│         host_compute_latency                                                                    │
 │         host_to_device_transfer_latency                                                         │
+│         inbound_buffer_transfer_latency                                                         │
 │         queued_programs                                                                         │
 │         sequencer_state                                                                         │
 │         sequencer_state_detailed                                                                │
