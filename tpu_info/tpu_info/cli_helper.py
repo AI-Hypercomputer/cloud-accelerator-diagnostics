@@ -337,6 +337,7 @@ def get_metric_table(
       "hlo_queue_size": lambda: get_hlo_queue_size_table(chip_type, count),
       "hlo_exec_timing": lambda: get_hlo_exec_timing_table(chip_type, count),
       "buffer_transfer_latency": transfer_latency_function,
+      "inbound_buffer_transfer_latency": transfer_latency_function,
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
       "collective_e2e_latency": transfer_latency_function,
@@ -966,6 +967,7 @@ class TransferLatencyTables:
 
   metric_display_name_map = {
       "buffer_transfer_latency": "Buffer Transfer Latency",
+      "inbound_buffer_transfer_latency": "Inbound Buffer Transfer Latency",
       "host_to_device_transfer_latency": "Host to Device Transfer Latency",
       "device_to_host_transfer_latency": "Device to Host Transfer Latency",
       "collective_e2e_latency": "Collective End to End Latency",
@@ -984,7 +986,10 @@ class TransferLatencyTables:
       percentiles_to_show = filters["percentile"]
 
     columns = []
-    if metric_arg == "buffer_transfer_latency":
+    if metric_arg in (
+        "buffer_transfer_latency",
+        "inbound_buffer_transfer_latency",
+    ):
       columns = ["Buffer Size"]
     elif filters and "buffer_size" in filters:
       columns = ["Buffer Size"]
@@ -1023,10 +1028,10 @@ class TransferLatencyTables:
 
     for distribution in transfer_latency_distributions:
       row = []
-      if (
-          metric_arg == "buffer_transfer_latency"
-          or (filters and "buffer_size" in filters)
-      ):
+      if metric_arg in (
+          "buffer_transfer_latency",
+          "inbound_buffer_transfer_latency",
+      ) or (filters and "buffer_size" in filters):
         row = [distribution.transfer_size]
       for p in percentiles_to_show:
         row.append(f"{getattr(distribution, p):.2f} {unit}")

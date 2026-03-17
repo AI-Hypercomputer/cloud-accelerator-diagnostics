@@ -75,6 +75,7 @@ class MetricName(enum.Enum):
   BUFFER_TRANSFER_LATENCY_US = (
       "megascale.dcn_transfer_latencies.microsecond.cumulative.distribution"
   )
+  INBOUND_BUFFER_TRANSFER_LATENCY_US = "megascale.dcn_inbound_transfer_latencies.microsecond.cumulative.distribution"
   HOST_TO_DEVICE_TRANSFER_LATENCY_US = "megascale.host_to_device_transfer_latencies.microsecond.cumulative.distribution"
   DEVICE_TO_HOST_TRANSFER_LATENCY_US = "megascale.device_to_host_transfer_latencies.microsecond.cumulative.distribution"
   COLLECTIVE_E2E_LATENCY_US = "megascale.collective_end_to_end_latencies.microsecond.cumulative.distribution"
@@ -127,6 +128,7 @@ class TransferLatencyDistribution(typing.NamedTuple):
 # The value is a set of valid filter keys.
 METRIC_FILTER_SCHEMA = {
     "buffer_transfer_latency": {"percentile"},
+    "inbound_buffer_transfer_latency": {"percentile"},
     "host_to_device_transfer_latency": {"percentile"},
     "device_to_host_transfer_latency": {"percentile"},
     "collective_e2e_latency": {"percentile"},
@@ -140,6 +142,7 @@ VALID_METRICS = {
     "duty_cycle_percent",
     "tensorcore_utilization",
     "buffer_transfer_latency",
+    "inbound_buffer_transfer_latency",
     "host_to_device_transfer_latency",
     "device_to_host_transfer_latency",
     "collective_e2e_latency",
@@ -153,6 +156,9 @@ VALID_METRICS = {
 
 LIBTPU_METRIC_MAP = {
     "buffer_transfer_latency": MetricName.BUFFER_TRANSFER_LATENCY_US.value,
+    "inbound_buffer_transfer_latency": (
+        MetricName.INBOUND_BUFFER_TRANSFER_LATENCY_US.value
+    ),
     "host_to_device_transfer_latency": (
         MetricName.HOST_TO_DEVICE_TRANSFER_LATENCY_US.value
     ),
