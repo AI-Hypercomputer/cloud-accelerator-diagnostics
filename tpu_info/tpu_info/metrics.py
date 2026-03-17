@@ -79,6 +79,7 @@ class MetricName(enum.Enum):
   HOST_TO_DEVICE_TRANSFER_LATENCY_US = "megascale.host_to_device_transfer_latencies.microsecond.cumulative.distribution"
   DEVICE_TO_HOST_TRANSFER_LATENCY_US = "megascale.device_to_host_transfer_latencies.microsecond.cumulative.distribution"
   COLLECTIVE_E2E_LATENCY_US = "megascale.collective_end_to_end_latencies.microsecond.cumulative.distribution"
+  HOST_COMPUTE_LATENCY_US = "megascale.mxla_compute_latencies.microsecond.cumulative.distribution"
   GRPC_TCP_MIN_RTT_US = "megascale.grpc_tcp_min_rtt.microsecond.cumulative.distribution"
   GRPC_TCP_DELIVERY_RATE_MBPS = "megascale.grpc_tcp_delivery_rate.Mbps.cumulative.distribution"
   HLO_QUEUE_SIZE = "hlo.queue.size.gauge"
@@ -132,6 +133,7 @@ METRIC_FILTER_SCHEMA = {
     "host_to_device_transfer_latency": {"percentile"},
     "device_to_host_transfer_latency": {"percentile"},
     "collective_e2e_latency": {"percentile"},
+    "host_compute_latency": {"percentile"},
 }
 
 # A set of all valid metric names for quick lookup.
@@ -146,6 +148,7 @@ VALID_METRICS = {
     "host_to_device_transfer_latency",
     "device_to_host_transfer_latency",
     "collective_e2e_latency",
+    "host_compute_latency",
     "grpc_tcp_min_rtt",
     "grpc_tcp_delivery_rate",
     "core_state",
@@ -166,6 +169,7 @@ LIBTPU_METRIC_MAP = {
         MetricName.DEVICE_TO_HOST_TRANSFER_LATENCY_US.value
     ),
     "collective_e2e_latency": MetricName.COLLECTIVE_E2E_LATENCY_US.value,
+    "host_compute_latency": MetricName.HOST_COMPUTE_LATENCY_US.value,
     "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
     "hlo_queue_size": MetricName.HLO_QUEUE_SIZE.value,

@@ -341,6 +341,7 @@ def get_metric_table(
       "host_to_device_transfer_latency": transfer_latency_function,
       "device_to_host_transfer_latency": transfer_latency_function,
       "collective_e2e_latency": transfer_latency_function,
+      "host_compute_latency": transfer_latency_function,
       "grpc_tcp_min_rtt": transfer_latency_function,
       "grpc_tcp_delivery_rate": transfer_latency_function,
       "core_state": get_tpuz_core_state,
@@ -971,6 +972,7 @@ class TransferLatencyTables:
       "host_to_device_transfer_latency": "Host to Device Transfer Latency",
       "device_to_host_transfer_latency": "Device to Host Transfer Latency",
       "collective_e2e_latency": "Collective End to End Latency",
+      "host_compute_latency": "Host Compute Latency",
       "grpc_tcp_min_rtt": "gRPC TCP Minimum RTT",
       "grpc_tcp_delivery_rate": "gRPC TCP Delivery Rate",
   }
@@ -989,6 +991,7 @@ class TransferLatencyTables:
     if metric_arg in (
         "buffer_transfer_latency",
         "inbound_buffer_transfer_latency",
+        "host_compute_latency",
     ):
       columns = ["Buffer Size"]
     elif filters and "buffer_size" in filters:
@@ -1031,6 +1034,7 @@ class TransferLatencyTables:
       if metric_arg in (
           "buffer_transfer_latency",
           "inbound_buffer_transfer_latency",
+          "host_compute_latency",
       ) or (filters and "buffer_size" in filters):
         row = [distribution.transfer_size]
       for p in percentiles_to_show:
