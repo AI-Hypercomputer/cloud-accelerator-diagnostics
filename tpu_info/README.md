@@ -26,12 +26,13 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.10.0
+## What's New in Version 0.11.0
 
 🚀 **New Features**
 
-* Adds `inbound_buffer_transfer_latency` metric: Tracks the latency of inbound buffer transfers
-* Adds `host_compute_latency` metric: Tracks the host compute latency
+* Group and aggregate transfer latency metrics by buffer size. (Matches
+  calculation on Monarch / Metric Explorer on GCP.)
+
 ***
 
 ## Installing
