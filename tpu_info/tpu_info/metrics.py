@@ -452,29 +452,85 @@ def get_transfer_latency(
       tpu_metrics.MetricRequest(metric_name=metric_name)
   )
 
+  # Group metrics by transfer/buffer size.
+  grouped_metrics = {}
+  for metric in resp.metric.metrics:
+    attributes = metric.attribute.value.kvlist_attr.attributes
+    transfer_size = "N/A"
+    for attr in attributes:
+      if attr.key == "buffer-size":
+        transfer_size = attr.value.string_attr
+        break
+    if transfer_size == "N/A" and attributes:
+      transfer_size = attributes[0].value.string_attr
+
+    if transfer_size not in grouped_metrics:
+      grouped_metrics[transfer_size] = []
+    grouped_metrics[transfer_size].append(metric)
+
   latency_distributions = []
 
-  for metric in resp.metric.metrics:
-    attribute = metric.attribute
-    distribution = metric.distribution
-    bucket = list(distribution.bucket_counts)
-    count = distribution.count
-    scale = distribution.bucket_options.exponential_buckets.scale
-    growth_factor = (
-        distribution.bucket_options.exponential_buckets.growth_factor
+  # Summing over buckets then calculating percentiles (to match Monarch) and is
+  # more mathematically sound than averaging the percentiles.
+  for transfer_size, metrics_list in grouped_metrics.items():
+    if not metrics_list:
+      continue
+
+    first_dist = metrics_list[0].distribution
+    scale = first_dist.bucket_options.exponential_buckets.scale
+    growth_factor = first_dist.bucket_options.exponential_buckets.growth_factor
+    num_buckets = len(first_dist.bucket_counts)
+
+    total_count = 0
+    total_buckets = [0] * num_buckets
+
+    for m in metrics_list:
+      dist = m.distribution
+      total_count += dist.count
+      for i in range(num_buckets):
+        if i < len(dist.bucket_counts):
+          total_buckets[i] += dist.bucket_counts[i]
+
+    if total_count == 0:
+      latency_distributions.append(
+          TransferLatencyDistribution(transfer_size, 1.0, 1.0, 1.0, 1.0)
+      )
+      continue
+
+    p50_count = int(total_count * 0.5)
+    p90_count = int(total_count * 0.9)
+    p95_count = int(total_count * 0.95)
+    p999_count = int(total_count * 0.999)
+
+    p50 = _get_percentile(
+        percentile_count=p50_count,
+        total_count=total_count,
+        buckets=total_buckets,
+        scale=scale,
+        growth_factor=growth_factor,
     )
-    p50_count = int(count * 0.5)
-    p90_count = int(count * 0.9)
-    p95_count = int(count * 0.95)
-    p999_count = int(count * 0.999)
+    p90 = _get_percentile(
+        percentile_count=p90_count,
+        total_count=total_count,
+        buckets=total_buckets,
+        scale=scale,
+        growth_factor=growth_factor,
+    )
+    p95 = _get_percentile(
+        percentile_count=p95_count,
+        total_count=total_count,
+        buckets=total_buckets,
+        scale=scale,
+        growth_factor=growth_factor,
+    )
+    p999 = _get_percentile(
+        percentile_count=p999_count,
+        total_count=total_count,
+        buckets=total_buckets,
+        scale=scale,
+        growth_factor=growth_factor,
+    )
 
-    p50 = _get_percentile(p50_count, count, bucket, scale, growth_factor)
-    p90 = _get_percentile(p90_count, count, bucket, scale, growth_factor)
-    p95 = _get_percentile(p95_count, count, bucket, scale, growth_factor)
-    p999 = _get_percentile(p999_count, count, bucket, scale, growth_factor)
-
-    attributes = attribute.value.kvlist_attr.attributes
-    transfer_size = attributes[0].value.string_attr if attributes else "N/A"
     latency_distributions.append(
         TransferLatencyDistribution(
             transfer_size,
