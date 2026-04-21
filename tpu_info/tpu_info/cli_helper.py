@@ -334,6 +334,12 @@ def get_metric_table(
       "tensorcore_utilization": lambda: [
           TensorCoreUtilizationTable().render(count)
       ],
+      "runtime_hbm_utilization": lambda: get_runtime_hbm_utilization_table(
+          chip_type, count
+      ),
+      "tensorcore_idle_duration": lambda: get_tensorcore_idle_duration_table(
+          chip_type, count
+      ),
       "hlo_queue_size": lambda: get_hlo_queue_size_table(chip_type, count),
       "hlo_exec_timing": lambda: get_hlo_exec_timing_table(chip_type, count),
       "buffer_transfer_latency": transfer_latency_function,
@@ -722,6 +728,62 @@ def get_duty_cycle_table(
             "N/A",
         )
     renderables.append(table)
+  return renderables
+
+
+def get_runtime_hbm_utilization_table(
+    chip_type: device.TpuChip,
+    count: int,
+) -> List[console.RenderableType]:
+  """Returns a table with the runtime HBM utilization info."""
+  table = render_empty_table_with_columns(
+      "TPU Runtime HBM Utilization", ["Device", "Utilization (%)"]
+  )
+  renderables: List[console.RenderableType] = []
+  try:
+    bw_utils = metrics.get_runtime_hbm_utilization()
+    for device_id, util in bw_utils:
+      table.add_row(str(device_id), f"{util:.2f}%")
+  except grpc.RpcError as e:
+    exception_message = f"ERROR fetching HBM bandwidth utilization: {e}"
+    exception_renderable = panel.Panel(
+        f"[red]{exception_message}[/red]",
+        title="[b]HBM BW Util Error[/b]",
+        border_style="red",
+    )
+    renderables.append(exception_renderable)
+    for device_id in range(count):
+      table.add_row(str(device_id), "N/A")
+
+  renderables.append(table)
+  return renderables
+
+
+def get_tensorcore_idle_duration_table(
+    chip_type: device.TpuChip,
+    count: int,
+) -> List[console.RenderableType]:
+  """Returns a table with the TensorCore idle duration info."""
+  table = render_empty_table_with_columns(
+      "TPU TensorCore Idle Duration", ["Device", "Idle Duration (s)"]
+  )
+  renderables: List[console.RenderableType] = []
+  try:
+    idle_durations = metrics.get_tensorcore_idle_duration()
+    for device_id, duration in idle_durations:
+      table.add_row(str(device_id), f"{duration:.2f}s")
+  except grpc.RpcError as e:
+    exception_message = f"ERROR fetching TensorCore idle duration: {e}"
+    exception_renderable = panel.Panel(
+        f"[red]{exception_message}[/red]",
+        title="[b]TensorCore Idle Duration Error[/b]",
+        border_style="red",
+    )
+    renderables.append(exception_renderable)
+    for device_id in range(count):
+      table.add_row(str(device_id), "N/A")
+
+  renderables.append(table)
   return renderables
 
 

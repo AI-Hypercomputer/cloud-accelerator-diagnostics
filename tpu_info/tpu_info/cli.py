@@ -65,6 +65,8 @@ def _fetch_and_render_tables(
   # Do not render this table if the Python version is incompatible.
   if not cli_helper.is_incompatible_python_version():
     renderables.append(cli_helper.TensorCoreUtilizationTable().render(count))
+
+
   renderables.append(
       cli_helper.TransferLatencyTables().render("buffer_transfer_latency")
   )

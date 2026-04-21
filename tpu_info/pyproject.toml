@@ -17,7 +17,7 @@ requires = ["hatchling", "hatch-build-scripts", "grpcio-tools~=1.65.5"]
 build-backend = "hatchling.build"
 
 [project]
-version = "0.11.0"
+version = "0.12.0"
 name = "tpu-info"
 dependencies = [
   # `grpcio` should match `grpcio-tools` build dependency
@@ -49,7 +49,7 @@ tpu-info = "tpu_info.cli:print_chip_info"
 [tool.hatch.build]
 exclude = [
   "*_test.py",
-  "*.proto",
+  "my-tpu-env",
 ]
 
 [tool.hatch.build.targets.wheel]

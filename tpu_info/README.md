@@ -26,6 +26,15 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
+## What's New in Version 0.12.0
+
+🚀 **New Features**
+
+* Adds `runtime_hbm_utilization` metric: Tracks runtime HBM utilization (percentage)
+* Adds `tensorcore_idle_duration` metric: Tracks TensorCore idle duration
+
+***
+
 ## What's New in Version 0.11.0
 
 🚀 **New Features**
@@ -273,6 +282,7 @@ $ tpu-info --list_metrics
 │         duty_cycle_percent                                                                      │
 │         grpc_tcp_delivery_rate                                                                  │
 │         grpc_tcp_min_rtt                                                                        │
+│         runtime_hbm_utilization                                                           │
 │         hbm_usage                                                                               │
 │         hlo_exec_timing                                                                         │
 │         hlo_queue_size                                                                          │
@@ -282,6 +292,7 @@ $ tpu-info --list_metrics
 │         queued_programs                                                                         │
 │         sequencer_state                                                                         │
 │         sequencer_state_detailed                                                                │
+│         tensorcore_idle_duration                                                                │
 │         tensorcore_utilization                                                                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```

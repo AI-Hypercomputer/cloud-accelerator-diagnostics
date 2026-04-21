@@ -82,6 +82,8 @@ class MetricName(enum.Enum):
   HOST_COMPUTE_LATENCY_US = "megascale.mxla_compute_latencies.microsecond.cumulative.distribution"
   GRPC_TCP_MIN_RTT_US = "megascale.grpc_tcp_min_rtt.microsecond.cumulative.distribution"
   GRPC_TCP_DELIVERY_RATE_MBPS = "megascale.grpc_tcp_delivery_rate.Mbps.cumulative.distribution"
+  HBM_BW_UTIL = "tpu.runtime.hbm.utilization.percent"
+  TENSORCORE_IDLE_DURATION = "tpu.runtime.tensorcore.idle_duration.seconds"
   HLO_QUEUE_SIZE = "hlo.queue.size.gauge"
   HLO_EXECUTION_TIMING_DISTRIBUTION_MICROSECONDS = (
       "hlo.execution.timing.distribution.microseconds"
@@ -151,6 +153,8 @@ VALID_METRICS = {
     "host_compute_latency",
     "grpc_tcp_min_rtt",
     "grpc_tcp_delivery_rate",
+    "runtime_hbm_utilization",
+    "tensorcore_idle_duration",
     "core_state",
     "sequencer_state",
     "sequencer_state_detailed",
@@ -172,6 +176,8 @@ LIBTPU_METRIC_MAP = {
     "host_compute_latency": MetricName.HOST_COMPUTE_LATENCY_US.value,
     "grpc_tcp_min_rtt": MetricName.GRPC_TCP_MIN_RTT_US.value,
     "grpc_tcp_delivery_rate": MetricName.GRPC_TCP_DELIVERY_RATE_MBPS.value,
+    "runtime_hbm_utilization": MetricName.HBM_BW_UTIL.value,
+    "tensorcore_idle_duration": MetricName.TENSORCORE_IDLE_DURATION.value,
     "hlo_queue_size": MetricName.HLO_QUEUE_SIZE.value,
     "hlo_exec_timing": (
         MetricName.HLO_EXECUTION_TIMING_DISTRIBUTION_MICROSECONDS.value
@@ -277,6 +283,42 @@ def get_chip_usage(
           d.gauge.as_double,
       )
       for u, t, d in zip(usages, totals, duty_cycle_pct_per_core)
+  ]
+
+
+def get_runtime_hbm_utilization(
+    addr: str = "localhost:8431",
+) -> List[tuple[int, float]]:
+  """Gets HBM bandwidth utilization for all attached TPU devices."""
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+  resp = client.GetRuntimeMetric(
+      tpu_metrics.MetricRequest(metric_name=MetricName.HBM_BW_UTIL.value)
+  )
+  return [
+      (m.attribute.value.int_attr, m.gauge.as_double)
+      for m in sorted(
+          resp.metric.metrics, key=lambda m: m.attribute.value.int_attr
+      )
+  ]
+
+
+def get_tensorcore_idle_duration(
+    addr: str = "localhost:8431",
+) -> List[tuple[int, float]]:
+  """Gets TensorCore idle duration for all attached TPU devices."""
+  channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
+  client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
+  resp = client.GetRuntimeMetric(
+      tpu_metrics.MetricRequest(
+          metric_name=MetricName.TENSORCORE_IDLE_DURATION.value
+      )
+  )
+  return [
+      (m.attribute.value.int_attr, m.gauge.as_double)
+      for m in sorted(
+          resp.metric.metrics, key=lambda m: m.attribute.value.int_attr
+      )
   ]
 
 
