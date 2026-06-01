@@ -26,12 +26,15 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.11.0
+## What's New in Version 0.12.0
 
-🚀 **New Features**
+🚀 **Bug Fixes / Improvements**
 
-* Group and aggregate transfer latency metrics by buffer size. (Matches
-  calculation on Monarch / Metric Explorer on GCP.)
+* Lazy initialization of `libtpu` to prevent recursive "fork bomb" in
+  spawn-based multiprocessing environments.
+* Switch safety-check subprocess start context from `fork` to `spawn` to ensure
+  a clean state and avoid duplicate protobuf descriptor registration crashes in
+  multi-threaded ML environments (e.g., JAX/vLLM).
 
 ***
 
