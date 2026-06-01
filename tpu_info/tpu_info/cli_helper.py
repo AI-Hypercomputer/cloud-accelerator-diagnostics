@@ -36,6 +36,8 @@ from rich import text
 # Define global variables to hold the libraries (populated if checks succeed).
 libtpu = None
 libtpu_sdk = None
+_libtpu_initialized = False
+_libtpu_init_message = "Not initialized"
 
 
 def _check_library_safety():
@@ -93,7 +95,10 @@ def _initialize_libtpu_safely() -> str:
   global libtpu, libtpu_sdk
 
   # Run the canary process in a separate process.
-  process = multiprocessing.Process(target=_check_library_safety)
+  # Use 'spawn' context to avoid inheriting parent process's loaded library state
+  # (like JAX/protobuf) which causes duplicate descriptor registration crashes.
+  ctx = multiprocessing.get_context('spawn')
+  process = ctx.Process(target=_check_library_safety)
   process.start()
   process.join()
   # Check the result of the canary process.
@@ -130,9 +135,19 @@ def _initialize_libtpu_safely() -> str:
   return error_message
 
 
-libtpu_import_status_message = _initialize_libtpu_safely()
-if libtpu_import_status_message != "OK":
-  print(libtpu_import_status_message)
+def ensure_libtpu_initialized() -> str:
+  """Ensures that libtpu is safely initialized (lazy evaluation).
+
+  Returns:
+    A string indicating the result of the check ("OK" or error message).
+  """
+  global _libtpu_initialized, _libtpu_init_message
+  if not _libtpu_initialized:
+    _libtpu_init_message = _initialize_libtpu_safely()
+    _libtpu_initialized = True
+    if _libtpu_init_message != "OK":
+      print(_libtpu_init_message, file=sys.stderr)
+  return _libtpu_init_message
 
 
 def _bytes_to_gib(size: int) -> float:
@@ -142,6 +157,7 @@ def _bytes_to_gib(size: int) -> float:
 
 def _get_libtpusdk_version() -> str | None:
   """Returns the version of the libtpu SDK or None if not found."""
+  ensure_libtpu_initialized()
   try:
     libtpu_version = fetch_libtpu_version()
   except ImportError:  # Assume libtpu is not installed, so no version
@@ -219,6 +235,7 @@ def fetch_cli_version() -> str:
 
 def fetch_libtpu_version() -> str:
   """Returns the version of the current libtpu."""
+  ensure_libtpu_initialized()
   try:
     if libtpu is not None:
       libtpu_version = libtpu.__version__
@@ -899,6 +916,7 @@ class TensorCoreUtilizationTable:
 
   def render(self, count: int) -> console.RenderableType:
     """Creates a Rich Table or Panel for TensorCore utilization."""
+    ensure_libtpu_initialized()
     try:
       if libtpu_sdk is None:
         raise ImportError("libtpu.sdk not available")
