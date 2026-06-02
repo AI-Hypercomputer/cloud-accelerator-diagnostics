@@ -26,15 +26,13 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.12.0
+## What's New in Version 0.13.0
 
-🚀 **Bug Fixes / Improvements**
+🚀 **New Features**
 
-* Lazy initialization of `libtpu` to prevent recursive "fork bomb" in
-  spawn-based multiprocessing environments.
-* Switch safety-check subprocess start context from `fork` to `spawn` to ensure
-  a clean state and avoid duplicate protobuf descriptor registration crashes in
-  multi-threaded ML environments (e.g., JAX/vLLM).
+* Add support for new HBM and TensorCore metrics:
+  * HBM Bandwidth Utilization: `runtime_hbm_utilization`
+  * TensorCore Idle Duration: `tensorcore_idle_duration`
 
 ***
 
@@ -276,6 +274,7 @@ $ tpu-info --list_metrics
 │         duty_cycle_percent                                                                      │
 │         grpc_tcp_delivery_rate                                                                  │
 │         grpc_tcp_min_rtt                                                                        │
+│         runtime_hbm_utilization                                                                 │
 │         hbm_usage                                                                               │
 │         hlo_exec_timing                                                                         │
 │         hlo_queue_size                                                                          │
@@ -285,6 +284,7 @@ $ tpu-info --list_metrics
 │         queued_programs                                                                         │
 │         sequencer_state                                                                         │
 │         sequencer_state_detailed                                                                │
+│         tensorcore_idle_duration                                                                │
 │         tensorcore_utilization                                                                  │
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
