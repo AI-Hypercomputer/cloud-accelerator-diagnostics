@@ -26,6 +26,7 @@ dependencies = [
   "rich",
   "packaging",
   "prometheus-client>=0.20.0",
+  "immutabledict",
 ]
 authors = [
   { name="Cloud TPU Team", email="cloud-tpu-eng@google.com" },

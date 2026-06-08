@@ -170,6 +170,8 @@ def _get_libtpusdk_version() -> str | None:
     libtpu_version = fetch_libtpu_version()
   except ImportError:  # Assume libtpu is not installed, so no version
     return None
+  if "unknown" in libtpu_version:
+    return None
   return libtpu_version
 
 
@@ -252,22 +254,25 @@ def fetch_libtpu_version() -> str:
       raise ImportError("libtpu not imported")
   except Exception:  # pylint: disable=broad-exception-caught
     try:
-      result = subprocess.run(
-          ["pip", "list"],
-          capture_output=True,
-          text=True,
-          check=True,
-      )
-      for line in result.stdout.splitlines():
-        if "libtpu" in line:
-          parts = line.split()
-          if len(parts) >= 2:
-            return parts[1]
-      return "unknown (libtpu not found)"
-    except subprocess.CalledProcessError as e:
-      return f"unknown (error running pip list: {e})"
-    except Exception as e:  # pylint: disable=broad-exception-caught
-      return f"unknown (unexpected error getting libtpu version: {e})"
+      return importlib.metadata.version("libtpu")
+    except importlib.metadata.PackageNotFoundError:
+      try:
+        result = subprocess.run(
+            ["pip", "list"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        for line in result.stdout.splitlines():
+          if "libtpu" in line:
+            parts = line.split()
+            if len(parts) >= 2:
+              return parts[1]
+        return "unknown (libtpu not found)"
+      except subprocess.CalledProcessError as e:
+        return f"unknown (error running pip list: {e})"
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        return f"unknown (unexpected error getting libtpu version: {e})"
 
 
 def fetch_accelerator_type() -> str:
@@ -458,8 +463,10 @@ def get_metric_table(
 ) -> List[console.RenderableType]:
   """Returns a table with the given metric info."""
   metric_name, filters = metric
-  renderables: List[console.RenderableType] = []
-  if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
+  if (
+      metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP
+      or metric_name in metrics.PYGRAIN_SHORT_TO_LONG_MAP
+  ):
     return get_prometheus_metric_table(metric_name)
 
   transfer_latency_function = lambda: [
@@ -494,8 +501,7 @@ def get_metric_table(
       ),
       "queued_programs": get_tpuz_queued_programs,
   }
-  renderables.extend(metric_functions[metric_name]())
-  return renderables
+  return metric_functions[metric_name]()
 
 
 def get_tpuz_core_state() -> List[console.RenderableType]:
@@ -1210,7 +1216,6 @@ class TransferLatencyTables:
       transfer_latency_distributions = metrics.get_transfer_latency(metric_arg)
     except grpc.RpcError as e:
       exception_message: str
-      exception_renderable: panel.Panel
       if e.code() == grpc.StatusCode.UNAVAILABLE or e.code() == grpc.StatusCode.NOT_FOUND:  # pytype: disable=attribute-error
         exception_message = (
             f"{metric_display_name} metrics unavailable. Did you start"
@@ -1309,6 +1314,7 @@ def get_unit_from_name(name: str) -> str:
 
 
 INTEGER_METRICS = frozenset({
+    "pygrain_dataset_prefetch_buffer_ready_count",
     "orbax_write_start_count",
     "orbax_write_async_start_count",
     "orbax_write_success_count",
@@ -1319,6 +1325,7 @@ INTEGER_METRICS = frozenset({
     "checkpoint_write_old_steps_examined_count",
     "orbax_read_start_count",
     "orbax_read_async_start_count",
+    "pygrain_dataloader_iterator_get_next_duration",
 })
 
 
@@ -1475,9 +1482,10 @@ def get_prometheus_metric_table_from_families(
     A list of rich RenderableType objects containing the rendered tables or
     panels.
   """
-  if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
-    long_name = metrics.ORBAX_SHORT_TO_LONG_MAP[metric_name]
-  else:
+  long_name = metrics.ORBAX_SHORT_TO_LONG_MAP.get(
+      metric_name
+  ) or metrics.PYGRAIN_SHORT_TO_LONG_MAP.get(metric_name)
+  if long_name is None:
     return [panel.Panel(f"Unknown metric: {metric_name}", border_style="red")]
 
   prom_name = long_name.strip("/").replace("/", "_")
@@ -1533,18 +1541,25 @@ def get_prometheus_metric_table(
     A list of rich RenderableType objects representing the metric tables.
   """
   if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
-    port_str = os.environ.get("ORBAX_PROMETHEUS_PORT")
-    port = metrics.ORBAX_PROMETHEUS_DEFAULT_PORT
-    if port_str:
-      try:
-        port = int(port_str)
-      except ValueError:
-        pass
     telemetry_name = "Orbax"
     env_var_name = "ENABLE_ORBAX_PROMETHEUS_TELEMETRY=true"
-
+    port_env_var = "ORBAX_PROMETHEUS_PORT"
+    default_port = metrics.ORBAX_PROMETHEUS_DEFAULT_PORT
+  elif metric_name in metrics.PYGRAIN_SHORT_TO_LONG_MAP:
+    telemetry_name = "Pygrain"
+    env_var_name = "ENABLE_PYGRAIN_PROMETHEUS_TELEMETRY=true"
+    port_env_var = "PYGRAIN_PROMETHEUS_PORT"
+    default_port = metrics.PYGRAIN_PROMETHEUS_DEFAULT_PORT
   else:
     return [panel.Panel(f"Unknown metric: {metric_name}", border_style="red")]
+
+  port_str = os.environ.get(port_env_var)
+  port = default_port
+  if port_str:
+    try:
+      port = int(port_str)
+    except ValueError:
+      pass
 
   try:
     all_metrics = metrics.scrape_prometheus(port)

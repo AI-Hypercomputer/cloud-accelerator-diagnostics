@@ -270,9 +270,22 @@ ORBAX_SHORT_TO_LONG_MAP = immutabledict({
     "orbax_read_worker_io_requested_throughput": (
         "/jax/orbax/read/worker/io/requested/throughput/gbytes_per_sec"
     ),
+    "orbax_read_storage_type": "/jax/orbax/read/storage_type",
 })
 
-PYGRAIN_SHORT_TO_LONG_MAP = immutabledict({})
+PYGRAIN_SHORT_TO_LONG_MAP = immutabledict({
+    "pygrain_dataset_next_duration": "/grain/python/dataset/next_duration_ns",
+    "pygrain_dataset_prefetch_buffer_ready_count": (
+        "/grain/python/dataset/prefetch_buffer_ready_count"
+    ),
+    "pygrain_data_sources_read_size": "/grain/python/data_sources/bytes_read",
+    "pygrain_dataset_source_read_duration": (
+        "/grain/python/dataset/source_read_time_ns"
+    ),
+    "pygrain_dataloader_iterator_get_next_duration": (
+        "/grain/python/data_loader/iterator_get_next"
+    ),
+})
 
 
 COLUMN_TO_LABEL_MAP = immutabledict({
@@ -301,6 +314,10 @@ METRIC_VALUE_HEADERS = immutabledict({
     "orbax_read_async_start_count": "Events",
     "orbax_read_worker_io_requested_size": "IO Requested Size",
     "orbax_read_worker_io_requested_throughput": "IO Requested Throughput",
+    "orbax_read_storage_type": "Events",
+    # Pygrain Scalar Metrics
+    "pygrain_data_sources_read_size": "Read Size",
+    "pygrain_dataloader_iterator_get_next_duration": "Events",
 })
 
 
@@ -334,10 +351,17 @@ METRIC_COLUMNS = immutabledict({
     "checkpoint_write_duration_since_last_checkpoint": [],
     "orbax_read_start_count": [],
     "orbax_read_async_start_count": [],
-    "orbax_read_async_blocking_duration": ["Storage Type"],
+    "orbax_read_async_blocking_duration": [],
     "orbax_read_total_duration": ["Storage Type"],
     "orbax_read_worker_io_requested_size": ["Storage Type"],
     "orbax_read_worker_io_requested_throughput": ["Storage Type"],
+    "orbax_read_storage_type": ["Storage Type"],
+    # Pygrain Metrics
+    "pygrain_dataset_next_duration": [],
+    "pygrain_dataset_prefetch_buffer_ready_count": [],
+    "pygrain_data_sources_read_size": ["Source"],
+    "pygrain_dataset_source_read_duration": ["Source"],
+    "pygrain_dataloader_iterator_get_next_duration": [],
 })
 
 
@@ -399,6 +423,31 @@ def get_orbax_metrics() -> List[Metric]:
 
   all_metrics = scrape_prometheus(port)
   return [m for m in all_metrics if m.name.startswith(ORBAX_METRIC_PREFIXES)]
+
+
+PYGRAIN_METRIC_PREFIXES = ("grain_python_",)
+
+
+def get_pygrain_metrics() -> List[Metric]:
+  """Fetches Pygrain metrics from local Prometheus server.
+
+  Returns:
+    A list of Metric objects matching Pygrain prefixes.
+
+  Raises:
+    PrometheusConnectionError: If the connection to the Prometheus server fails.
+  """
+  port_str = os.environ.get("PYGRAIN_PROMETHEUS_PORT")
+  if port_str:
+    try:
+      port = int(port_str)
+    except ValueError:
+      port = PYGRAIN_PROMETHEUS_DEFAULT_PORT
+  else:
+    port = PYGRAIN_PROMETHEUS_DEFAULT_PORT
+
+  all_metrics = scrape_prometheus(port)
+  return [m for m in all_metrics if m.name.startswith(PYGRAIN_METRIC_PREFIXES)]
 
 
 def get_chip_usage_new(
