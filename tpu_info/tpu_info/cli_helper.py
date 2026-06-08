@@ -14,12 +14,15 @@
 
 """Helper functions for the CLI."""
 
+import collections
 import importlib.metadata
 import multiprocessing
+import os
+import re
 import signal
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from tpu_info import device
 from tpu_info import metrics
@@ -31,6 +34,9 @@ from rich import console
 from rich import panel
 from rich import table as rich_table
 from rich import text
+
+if not sys.executable:
+  sys.executable = "/usr/bin/python3"
 
 
 # Define global variables to hold the libraries (populated if checks succeed).
@@ -54,7 +60,7 @@ def _check_library_safety():
   """
   try:
     # We only need to import it to see if it crashes.
-    # pylint: disable=g-import-not-at-top
+    # pylint: disable=g-import-not-at-top,unused-import,redefined-outer-name
     import libtpu  # pytype: disable=import-error
     from libtpu import sdk  # pytype: disable=import-error
   except ImportError:
@@ -68,7 +74,7 @@ def _initialize_libtpu_safely() -> str:
 
   This function is used to check if the libtpu import will succeed. It runs
   _check_library_safety() in a separate process as a check to avoid any side
-  effects in the main process, avoiding the main process and program from 
+  effects in the main process, avoiding the main process and program from
   exiting/crashing. The check then informs this function whether it is safe to
   import libtpu in the main process through exit codes.
 
@@ -95,12 +101,14 @@ def _initialize_libtpu_safely() -> str:
   global libtpu, libtpu_sdk
 
   # Run the canary process in a separate process.
-  # Use 'spawn' context to avoid inheriting parent process's loaded library state
-  # (like JAX/protobuf) which causes duplicate descriptor registration crashes.
-  ctx = multiprocessing.get_context('spawn')
+  # Use 'spawn' context to avoid inheriting parent process's loaded library
+  # state (like JAX/protobuf) which causes duplicate descriptor registration
+  # crashes.
+  ctx = multiprocessing.get_context("spawn")
   process = ctx.Process(target=_check_library_safety)
   process.start()
   process.join()
+
   # Check the result of the canary process.
   if process.exitcode == 0:
     # Check succeeded so now it's safe to import here.
@@ -329,8 +337,117 @@ def fetch_metric_tables(
 ) -> List[console.RenderableType]:
   """Returns a list of metric tables."""
   renderables: List[console.RenderableType] = []
+
+  orbax_metrics = []
+  pygrain_metrics = []
+  other_metrics = []
+
   for metric in validated_metrics:
+    metric_name, _ = metric
+    if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
+      orbax_metrics.append(metric_name)
+    elif metric_name in metrics.PYGRAIN_SHORT_TO_LONG_MAP:
+      pygrain_metrics.append(metric_name)
+    else:
+      other_metrics.append(metric)
+
+  if orbax_metrics:
+    renderables.extend(
+        _fetch_prometheus_metrics_batch(
+            orbax_metrics,
+            "Orbax",
+            metrics.ORBAX_PROMETHEUS_DEFAULT_PORT,
+            "ORBAX_PROMETHEUS_PORT",
+            "ENABLE_ORBAX_PROMETHEUS_TELEMETRY=true",
+        )
+    )
+
+  if pygrain_metrics:
+    renderables.extend(
+        _fetch_prometheus_metrics_batch(
+            pygrain_metrics,
+            "Pygrain",
+            metrics.PYGRAIN_PROMETHEUS_DEFAULT_PORT,
+            "PYGRAIN_PROMETHEUS_PORT",
+            "ENABLE_PYGRAIN_PROMETHEUS_TELEMETRY=true",
+        )
+    )
+
+  for metric in other_metrics:
     renderables.extend(get_metric_table(metric, chip_type, count))
+
+  return renderables
+
+
+def _fetch_prometheus_metrics_batch(
+    metric_names: List[str],
+    telemetry_name: str,
+    default_port: int,
+    port_env_var: str,
+    env_var_name: str,
+) -> List[console.RenderableType]:
+  """Scrapes Prometheus once and renders tables for a batch of metrics."""
+  port_str = os.environ.get(port_env_var)
+  if port_str:
+    try:
+      port = int(port_str)
+    except ValueError:
+      port = default_port
+  else:
+    port = default_port
+
+  try:
+    all_metrics = metrics.scrape_prometheus(port)
+  except metrics.PrometheusConnectionError:
+    warning_message = (
+        f"Could not connect to {telemetry_name} Prometheus server on port"
+        f" {port}.\nEnsure your workload is running with"
+        f" [bold]{env_var_name}[/bold] environment variable."
+    )
+    return [
+        panel.Panel(
+            warning_message,
+            title=(
+                f"[bold yellow]{telemetry_name} Telemetry Offline[/bold yellow]"
+            ),
+            border_style="yellow",
+        )
+    ]
+  except Exception as e:  # pylint: disable=broad-exception-caught
+    return [
+        panel.Panel(
+            f"Error fetching metrics: {e!r}",
+            title="[bold red]Error[/bold red]",
+            border_style="red",
+        )
+    ]
+
+  renderables = []
+  missing_metrics = []
+  consolidate_warnings = len(metric_names) > 1
+
+  for metric_name in metric_names:
+    tables = get_prometheus_metric_table_from_families(
+        all_metrics,
+        metric_name,
+        telemetry_name,
+        skip_if_missing=consolidate_warnings,
+    )
+    if not tables and consolidate_warnings:
+      missing_metrics.append(metric_name)
+    else:
+      renderables.extend(tables)
+
+  if missing_metrics:
+    missing_list = "\n".join(f"- {m}" for m in missing_metrics)
+    warning_panel = panel.Panel(
+        "The following metrics were not found on the Prometheus server (they"
+        f" may not have been recorded yet):\n{missing_list}",
+        title=f"[bold yellow]{telemetry_name} Metrics Not Found[/bold yellow]",
+        border_style="yellow",
+    )
+    renderables.append(warning_panel)
+
   return renderables
 
 
@@ -342,6 +459,9 @@ def get_metric_table(
   """Returns a table with the given metric info."""
   metric_name, filters = metric
   renderables: List[console.RenderableType] = []
+  if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
+    return get_prometheus_metric_table(metric_name)
+
   transfer_latency_function = lambda: [
       TransferLatencyTables().render(metric_name, filters)
   ]
@@ -566,13 +686,15 @@ def get_tpuz_queued_programs() -> List[console.RenderableType]:
 
 
 def render_empty_table_with_columns(
-    title: str, columns: List[str]
+    title: Optional[str], columns: List[str]
 ) -> rich_table.Table:
   """Renders an empty table with the given columns and title."""
+  min_width = len(title) + 4 if title else None
   table = rich_table.Table(
       title=title,
       title_justify="left",
       box=box.MARKDOWN,
+      min_width=min_width,
   )
   for column in columns:
     table.add_column(column)
@@ -1121,3 +1243,335 @@ class TransferLatencyTables:
         row.append(f"{getattr(distribution, p):.2f} {unit}")
       table.add_row(*row)
     return table
+
+
+def calculate_percentile(
+    buckets: Sequence[Tuple[float, float]], percentile: float
+) -> float:
+  """Calculates percentile from cumulative histogram buckets.
+
+  Args:
+    buckets: A sequence of (upper_bound, cumulative_count) tuples, sorted by
+      upper_bound.
+    percentile: The percentile to calculate (between 0.0 and 1.0).
+
+  Returns:
+    The estimated value at the given percentile.
+  """
+  if not buckets:
+    return 0.0
+  _, total_count = buckets[-1]
+  if total_count == 0:
+    return 0.0
+
+  target_count = total_count * percentile
+
+  prev_upper_bound = 0.0
+  prev_count = 0.0
+  for upper_bound, count in buckets:
+    if count >= target_count:
+      if upper_bound == float("inf"):
+        return prev_upper_bound
+      if count == prev_count:
+        return upper_bound
+      # Linear interpolation
+      ratio = (target_count - prev_count) / (count - prev_count)
+      return prev_upper_bound + ratio * (upper_bound - prev_upper_bound)
+    prev_upper_bound = upper_bound
+    prev_count = count
+  return buckets[-1][0]
+
+
+def get_unit_from_name(name: str) -> str:
+  """Infers the unit of measurement from the metric name.
+
+  Args:
+    name: The name of the metric.
+
+  Returns:
+    A string representing the unit (e.g., 'GB/s', 'GB', 'B', 's', 'ns'),
+    or an empty string if the unit cannot be inferred.
+  """
+  name = name.lower()
+  if re.search(r"(_|^)(gbytes_per_sec|gb_per_sec|gb_s)(_|$)", name):
+    return "GiB/s"
+  if re.search(r"(_|^)(gbytes|gb)(_|$)", name):
+    return "GiB"
+  if re.search(r"(_|^)bytes(_|$)", name):
+    return "B"
+  if re.search(
+      r"(_|^)(duration_secs|duration_sec|seconds|secs|sec)(_|$)", name
+  ):
+    return "s"
+  if re.search(r"(_|^)(duration_ns|ns)(_|$)", name):
+    return "ns"
+  return ""
+
+
+INTEGER_METRICS = frozenset({
+    "orbax_write_start_count",
+    "orbax_write_async_start_count",
+    "orbax_write_success_count",
+    "orbax_write_preemption_count",
+    "orbax_write_storage_type",
+    "orbax_read_storage_type",
+    "checkpoint_write_async_commit_future_count",
+    "checkpoint_write_old_steps_examined_count",
+    "orbax_read_start_count",
+    "orbax_read_async_start_count",
+})
+
+
+def should_format_as_integer(name: str) -> bool:
+  """Determines if a metric should be formatted as a clean integer.
+
+  Args:
+    name: The name of the metric.
+
+  Returns:
+    True if the metric should be formatted as an integer, False otherwise.
+  """
+  name = name.lower()
+  return any(
+      name == metric or name.endswith(metric) for metric in INTEGER_METRICS
+  )
+
+
+def format_metric_title(name: str) -> str:
+  """Formats a short metric name to a human-readable table title.
+
+  Args:
+    name: The short metric name (e.g. 'pygrain_dataset_next_duration').
+
+  Returns:
+    A formatted title string (e.g. 'Pygrain Dataset Next Duration').
+  """
+  return " ".join(word.capitalize() for word in name.split("_"))
+
+
+def render_single_prometheus_scalar(
+    family: metrics.Metric, title: Optional[str], schema_key: str
+) -> rich_table.Table:
+  """Renders a single Prometheus scalar metric (no Metric column).
+
+  Args:
+    family: The Prometheus Metric family to render.
+    title: The title of the rendered table.
+    schema_key: The short name of the metric to look up extra columns.
+
+  Returns:
+    A rich Table object representing the metric.
+  """
+  extra_cols = metrics.METRIC_COLUMNS.get(schema_key, [])
+  value_header = metrics.METRIC_VALUE_HEADERS.get(schema_key, "Value")
+  columns = extra_cols + [value_header]
+  table = render_empty_table_with_columns(title, columns)
+
+  unit = get_unit_from_name(family.name)
+
+  for sample in family.samples:
+    if should_format_as_integer(schema_key):
+      value_str = f"{int(round(sample.value))} {unit}".strip()
+    elif sample.value.is_integer():
+      value_str = f"{int(sample.value)} {unit}".strip()
+    else:
+      value_str = f"{sample.value:.2f} {unit}".strip()
+    row = []
+    labels = dict(sample.labels)
+    for col in extra_cols:
+      label_key = metrics.COLUMN_TO_LABEL_MAP.get(col)
+      if label_key:
+        row.append(labels.get(label_key, "N/A"))
+      else:
+        row.append("N/A")
+    row.append(value_str)
+
+    table.add_row(*row)
+
+  return table
+
+
+def render_single_prometheus_histogram(
+    family: metrics.Metric, title: Optional[str], schema_key: str
+) -> rich_table.Table:
+  """Renders a single Prometheus histogram metric (no Metric column).
+
+  Args:
+    family: The Prometheus Metric family to render.
+    title: The title of the rendered table.
+    schema_key: The short name of the metric to look up extra columns.
+
+  Returns:
+    A rich Table object representing the metric with percentiles.
+  """
+  extra_cols = metrics.METRIC_COLUMNS.get(schema_key, [])
+  columns = extra_cols + ["P5", "P50", "P95", "P99"]
+  table = render_empty_table_with_columns(title, columns)
+
+  unit = get_unit_from_name(family.name)
+  samples_by_label_key = collections.defaultdict(list)
+
+  for sample in family.samples:
+    if sample.name.endswith("_bucket"):
+      labels = dict(sample.labels)
+      le_str = labels.pop("le", None)
+      if le_str is None:
+        continue
+      upper_bound = float("inf") if le_str == "+Inf" else float(le_str)
+      label_key = tuple(sorted(labels.items()))
+      samples_by_label_key[label_key].append((upper_bound, sample.value))
+
+  for label_key, buckets in samples_by_label_key.items():
+    buckets.sort(key=lambda x: x[0])
+    p5 = calculate_percentile(buckets, 0.05)
+    p50 = calculate_percentile(buckets, 0.5)
+    p95 = calculate_percentile(buckets, 0.95)
+    p99 = calculate_percentile(buckets, 0.99)
+
+    if should_format_as_integer(schema_key):
+      p5_str = f"{int(round(p5))} {unit}".strip()
+      p50_str = f"{int(round(p50))} {unit}".strip()
+      p95_str = f"{int(round(p95))} {unit}".strip()
+      p99_str = f"{int(round(p99))} {unit}".strip()
+    else:
+      p5_str = f"{p5:.2f} {unit}".strip()
+      p50_str = f"{p50:.2f} {unit}".strip()
+      p95_str = f"{p95:.2f} {unit}".strip()
+      p99_str = f"{p99:.2f} {unit}".strip()
+
+    row = []
+    labels = dict(label_key)
+    for col in extra_cols:
+      label_key_name = metrics.COLUMN_TO_LABEL_MAP.get(col)
+      if label_key_name:
+        row.append(labels.get(label_key_name, "N/A"))
+      else:
+        row.append("N/A")
+    row.extend([p5_str, p50_str, p95_str, p99_str])
+
+    table.add_row(*row)
+
+  return table
+
+
+def get_prometheus_metric_table_from_families(
+    all_metrics: Sequence[metrics.Metric],
+    metric_name: str,
+    telemetry_name: str,
+    *,
+    skip_if_missing: bool = True,
+) -> List[console.RenderableType]:
+  """Renders a single metric table from a pre-scraped list of families.
+
+  Args:
+    all_metrics: A sequence of pre-scraped Prometheus Metric families.
+    metric_name: The short name of the metric (e.g.
+      'pygrain_dataset_next_duration').
+    telemetry_name: The name of the telemetry source (e.g. 'Orbax', 'Pygrain').
+    skip_if_missing: If True, returns an empty list if the metric is not found
+      in all_metrics. If False, returns a Panel with a warning.
+
+  Returns:
+    A list of rich RenderableType objects containing the rendered tables or
+    panels.
+  """
+  if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
+    long_name = metrics.ORBAX_SHORT_TO_LONG_MAP[metric_name]
+  else:
+    return [panel.Panel(f"Unknown metric: {metric_name}", border_style="red")]
+
+  prom_name = long_name.strip("/").replace("/", "_")
+
+  target_family = next(
+      (family for family in all_metrics if family.name == prom_name), None
+  )
+
+  if target_family is None:
+    if skip_if_missing:
+      return []
+    else:
+      return [
+          panel.Panel(
+              f"Metric {metric_name} not found on Prometheus server.",
+              title=f"[bold yellow]{telemetry_name} Metrics[/bold yellow]",
+              border_style="yellow",
+          )
+      ]
+
+  title = format_metric_title(metric_name)
+  title_renderable = text.Text(title, style="table.title")
+
+  if target_family.type in ("counter", "gauge"):
+    table = render_single_prometheus_scalar(
+        target_family, None, schema_key=metric_name
+    )
+  elif target_family.type == "histogram":
+    table = render_single_prometheus_histogram(
+        target_family, None, schema_key=metric_name
+    )
+  else:
+    return [
+        panel.Panel(
+            f"Unsupported metric type: {target_family.type}",
+            border_style="red",
+        )
+    ]
+
+  return [title_renderable, table]
+
+
+def get_prometheus_metric_table(
+    metric_name: str,
+) -> List[console.RenderableType]:
+  """Returns tables with a single Prometheus metric.
+
+  Args:
+    metric_name: The name of the metric to display (e.g.,
+      'pygrain_dataset_next_duration').
+
+  Returns:
+    A list of rich RenderableType objects representing the metric tables.
+  """
+  if metric_name in metrics.ORBAX_SHORT_TO_LONG_MAP:
+    port_str = os.environ.get("ORBAX_PROMETHEUS_PORT")
+    port = metrics.ORBAX_PROMETHEUS_DEFAULT_PORT
+    if port_str:
+      try:
+        port = int(port_str)
+      except ValueError:
+        pass
+    telemetry_name = "Orbax"
+    env_var_name = "ENABLE_ORBAX_PROMETHEUS_TELEMETRY=true"
+
+  else:
+    return [panel.Panel(f"Unknown metric: {metric_name}", border_style="red")]
+
+  try:
+    all_metrics = metrics.scrape_prometheus(port)
+  except metrics.PrometheusConnectionError:
+    warning_message = (
+        f"Could not connect to {telemetry_name} Prometheus server on port"
+        f" {port}.\nEnsure your workload is running with"
+        f" [bold]{env_var_name}[/bold] environment variable."
+    )
+    return [
+        panel.Panel(
+            warning_message,
+            title=(
+                f"[bold yellow]{telemetry_name} Telemetry Offline[/bold yellow]"
+            ),
+            border_style="yellow",
+        )
+    ]
+  except Exception as e:  # pylint: disable=broad-exception-caught
+    return [
+        panel.Panel(
+            f"Error fetching metrics: {e!r}",
+            title="[bold red]Error[/bold red]",
+            border_style="red",
+        )
+    ]
+
+  return get_prometheus_metric_table_from_families(
+      all_metrics, metric_name, telemetry_name, skip_if_missing=False
+  )

@@ -25,6 +25,7 @@ dependencies = [
   "protobuf",
   "rich",
   "packaging",
+  "prometheus-client>=0.20.0",
 ]
 authors = [
   { name="Cloud TPU Team", email="cloud-tpu-eng@google.com" },
@@ -68,8 +69,8 @@ commands = [
   # Look up proto from current directory to ensure imports use `tpu_info`
   # package (e.g. `from tpu_info.proto import ...`)
   # See protoc bug: https://github.com/protocolbuffers/protobuf/issues/1491
-  "python -m grpc_tools.protoc -I. tpu_info/proto/tpu_metric_service.proto --python_out=. --pyi_out=. --grpc_python_out=.",
-  "python -m grpc_tools.protoc -I. tpu_info/proto/tpu_telemetry.proto --python_out=. --pyi_out=.",
+  "python -m grpc_tools.protoc --experimental_editions -I. tpu_info/proto/tpu_metric_service.proto --python_out=. --pyi_out=. --grpc_python_out=.",
+  "python -m grpc_tools.protoc --experimental_editions -I. tpu_info/proto/tpu_telemetry.proto --python_out=. --pyi_out=.",
 ]
 artifacts = []
 clean_artifacts = false

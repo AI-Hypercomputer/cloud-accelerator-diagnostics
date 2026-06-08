@@ -16,11 +16,17 @@
 import dataclasses
 import enum
 import itertools
+import os
 import typing
 from typing import Any, Dict, List, Optional
+import urllib.error
+import urllib.request
 
 from tpu_info import device
 import grpc
+from immutabledict import immutabledict
+from prometheus_client.core import Metric
+from prometheus_client.parser import text_string_to_metric_families
 
 from tpu_info.proto import tpu_metric_service_pb2 as tpu_metrics
 from tpu_info.proto import tpu_metric_service_pb2_grpc as tpu_metrics_grpc
@@ -138,29 +144,6 @@ METRIC_FILTER_SCHEMA = {
     "host_compute_latency": {"percentile"},
 }
 
-# A set of all valid metric names for quick lookup.
-VALID_METRICS = {
-    "hbm_usage",
-    "hlo_queue_size",
-    "hlo_exec_timing",
-    "duty_cycle_percent",
-    "tensorcore_utilization",
-    "buffer_transfer_latency",
-    "inbound_buffer_transfer_latency",
-    "host_to_device_transfer_latency",
-    "device_to_host_transfer_latency",
-    "collective_e2e_latency",
-    "host_compute_latency",
-    "grpc_tcp_min_rtt",
-    "grpc_tcp_delivery_rate",
-    "runtime_hbm_utilization",
-    "tensorcore_idle_duration",
-    "core_state",
-    "sequencer_state",
-    "sequencer_state_detailed",
-    "queued_programs",
-}
-
 LIBTPU_METRIC_MAP = {
     "buffer_transfer_latency": MetricName.BUFFER_TRANSFER_LATENCY_US.value,
     "inbound_buffer_transfer_latency": (
@@ -183,6 +166,239 @@ LIBTPU_METRIC_MAP = {
         MetricName.HLO_EXECUTION_TIMING_DISTRIBUTION_MICROSECONDS.value
     ),
 }
+
+
+class PrometheusConnectionError(Exception):
+  """Connection to Prometheus server failed."""
+
+  pass
+
+
+def scrape_prometheus(port: int) -> List[Metric]:
+  """Scrapes Prometheus metrics from localhost on the given port.
+
+  Args:
+    port: The port number to scrape metrics from.
+
+  Returns:
+    A list of Metric objects.
+
+  Raises:
+    PrometheusConnectionError: If the connection to the Prometheus server fails.
+  """
+  url = f"http://localhost:{port}/metrics"
+  try:
+    with urllib.request.urlopen(url, timeout=2) as response:
+      content = response.read().decode("utf-8")
+      return list(text_string_to_metric_families(content))
+  except Exception as e:
+    raise PrometheusConnectionError(
+        f"Failed to scrape Prometheus on port {port}: {e}"
+    ) from e
+
+
+ORBAX_SHORT_TO_LONG_MAP = immutabledict({
+    "orbax_write_size": "/jax/orbax/write/gbytes",
+    "orbax_write_throughput": "/jax/orbax/write/gbytes_per_sec",
+    "orbax_write_blocking_throughput": (
+        "/jax/orbax/write/blocking_gbytes_per_sec"
+    ),
+    "orbax_write_replicated_array_size": "/jax/orbax/write/replicated_array_gb",
+    "orbax_write_sharded_array_size": "/jax/orbax/write/sharded_array_gb",
+    "orbax_write_start_count": "/jax/orbax/write/start",
+    "orbax_write_async_start_count": "/jax/orbax/write/async/start",
+    "orbax_write_success_count": "/jax/orbax/write/success",
+    "orbax_write_preemption_count": "/jax/orbax/write/preemption",
+    "orbax_write_storage_type": "/jax/orbax/write/storage_type",
+    "orbax_write_directory_creation_duration": (
+        "/jax/orbax/write/directory_creation_secs"
+    ),
+    "orbax_write_async_directory_creation_duration": (
+        "/jax/orbax/write/async_directory_creation_secs"
+    ),
+    "orbax_write_checkpoint_start_sync_duration": (
+        "/jax/orbax/write/checkpoint_start_sync_duration_secs"
+    ),
+    "checkpoint_write_async_blocking_duration": (
+        "/jax/checkpoint/write/async/blocking_duration_secs"
+    ),
+    "checkpoint_write_async_total_duration": (
+        "/jax/checkpoint/write/async/total_duration_secs"
+    ),
+    "checkpoint_write_async_commit_duration": (
+        "/jax/checkpoint/write/async/commit_duration_sec"
+    ),
+    "checkpoint_write_async_thread_duration": (
+        "/jax/checkpoint/write/async/thread_duration_sec"
+    ),
+    "checkpoint_write_async_commit_future_count": (
+        "/jax/checkpoint/write/async/commit_future_count"
+    ),
+    "checkpoint_write_async_metadata_write_duration": (
+        "/jax/checkpoint/write/async/metadata_write_duration_secs"
+    ),
+    "checkpoint_write_async_ocdbt_merge_duration": (
+        "/jax/checkpoint/write/async/ocdbt_merge_duration_secs"
+    ),
+    "checkpoint_write_get_old_steps_duration": (
+        "/jax/checkpoint/write/get_old_steps_duration_secs"
+    ),
+    "checkpoint_write_old_steps_examined_count": (
+        "/jax/checkpoint/write/old_steps_examined_count"
+    ),
+    "checkpoint_write_wait_for_previous_duration": (
+        "/jax/checkpoint/write/wait_for_prev_duration_secs"
+    ),
+    "checkpoint_write_preemption_duration_saved": (
+        "/jax/checkpoint/write/preempt/duration_saved_secs"
+    ),
+    "checkpoint_write_remove_steps_duration": (
+        "/jax/checkpoint/write/remove_steps_duration_secs"
+    ),
+    "checkpoint_write_duration_since_last_checkpoint": (
+        "/jax/checkpoint/write/duration_since_last_checkpoint_secs"
+    ),
+    "orbax_read_start_count": "/jax/orbax/read/start",
+    "orbax_read_async_start_count": "/jax/orbax/read/async/start",
+    "orbax_read_async_blocking_duration": (
+        "/jax/orbax/read/async/blocking_duration_secs"
+    ),
+    "orbax_read_total_duration": "/jax/orbax/read/total_duration_secs",
+    "orbax_read_worker_io_requested_size": (
+        "/jax/orbax/read/worker/io/requested/gbytes"
+    ),
+    "orbax_read_worker_io_requested_throughput": (
+        "/jax/orbax/read/worker/io/requested/throughput/gbytes_per_sec"
+    ),
+})
+
+PYGRAIN_SHORT_TO_LONG_MAP = immutabledict({})
+
+
+COLUMN_TO_LABEL_MAP = immutabledict({
+    "Host": "host",
+    "Storage Type": "storage_type",
+    "Source": "source",
+})
+
+
+METRIC_VALUE_HEADERS = immutabledict({
+    # JAX/Orbax Scalar Metrics
+    "orbax_write_size": "Size",
+    "orbax_write_throughput": "Throughput",
+    "orbax_write_blocking_throughput": "Blocking Throughput",
+    "orbax_write_replicated_array_size": "Replicated Array Size",
+    "orbax_write_sharded_array_size": "Sharded Array Size",
+    "orbax_write_start_count": "Events",
+    "orbax_write_async_start_count": "Events",
+    "orbax_write_success_count": "Events",
+    "orbax_write_preemption_count": "Events",
+    "orbax_write_storage_type": "Events",
+    "checkpoint_write_async_commit_future_count": "IO Tasks",
+    "checkpoint_write_old_steps_examined_count": "Count",
+    "orbax_write_tfhub_path_success": "Events",
+    "orbax_read_start_count": "Events",
+    "orbax_read_async_start_count": "Events",
+    "orbax_read_worker_io_requested_size": "IO Requested Size",
+    "orbax_read_worker_io_requested_throughput": "IO Requested Throughput",
+})
+
+
+METRIC_COLUMNS = immutabledict({
+    # Orbax Metrics
+    "orbax_write_size": [],
+    "orbax_write_throughput": [],
+    "orbax_write_blocking_throughput": [],
+    "orbax_write_replicated_array_size": [],
+    "orbax_write_sharded_array_size": [],
+    "orbax_write_start_count": [],
+    "orbax_write_async_start_count": [],
+    "orbax_write_success_count": [],
+    "orbax_write_preemption_count": [],
+    "orbax_write_storage_type": ["Storage Type"],
+    "orbax_write_directory_creation_duration": [],
+    "orbax_write_async_directory_creation_duration": [],
+    "orbax_write_checkpoint_start_sync_duration": [],
+    "checkpoint_write_async_blocking_duration": ["Storage Type"],
+    "checkpoint_write_async_total_duration": ["Storage Type"],
+    "checkpoint_write_async_commit_duration": [],
+    "checkpoint_write_async_thread_duration": [],
+    "checkpoint_write_async_commit_future_count": [],
+    "checkpoint_write_async_metadata_write_duration": [],
+    "checkpoint_write_async_ocdbt_merge_duration": [],
+    "checkpoint_write_get_old_steps_duration": [],
+    "checkpoint_write_old_steps_examined_count": [],
+    "checkpoint_write_wait_for_previous_duration": [],
+    "checkpoint_write_preemption_duration_saved": [],
+    "checkpoint_write_remove_steps_duration": [],
+    "checkpoint_write_duration_since_last_checkpoint": [],
+    "orbax_read_start_count": [],
+    "orbax_read_async_start_count": [],
+    "orbax_read_async_blocking_duration": ["Storage Type"],
+    "orbax_read_total_duration": ["Storage Type"],
+    "orbax_read_worker_io_requested_size": ["Storage Type"],
+    "orbax_read_worker_io_requested_throughput": ["Storage Type"],
+})
+
+
+# A set of all valid metric names for quick lookup.
+VALID_METRICS = frozenset(
+    {
+        "hbm_usage",
+        "hlo_queue_size",
+        "hlo_exec_timing",
+        "duty_cycle_percent",
+        "tensorcore_utilization",
+        "buffer_transfer_latency",
+        "inbound_buffer_transfer_latency",
+        "host_to_device_transfer_latency",
+        "device_to_host_transfer_latency",
+        "collective_e2e_latency",
+        "host_compute_latency",
+        "grpc_tcp_min_rtt",
+        "grpc_tcp_delivery_rate",
+        "runtime_hbm_utilization",
+        "tensorcore_idle_duration",
+        "core_state",
+        "sequencer_state",
+        "sequencer_state_detailed",
+        "queued_programs",
+    }
+    | set(ORBAX_SHORT_TO_LONG_MAP.keys())
+    | set(PYGRAIN_SHORT_TO_LONG_MAP.keys())
+)
+
+
+ORBAX_PROMETHEUS_DEFAULT_PORT = 9431
+PYGRAIN_PROMETHEUS_DEFAULT_PORT = 9431
+
+ORBAX_METRIC_PREFIXES = (
+    "jax_orbax_write_",
+    "jax_checkpoint_write_",
+    "jax_orbax_read_",
+)
+
+
+def get_orbax_metrics() -> List[Metric]:
+  """Fetches Orbax metrics from local Prometheus server.
+
+  Returns:
+    A list of Metric objects matching Orbax prefixes.
+
+  Raises:
+    PrometheusConnectionError: If the connection to the Prometheus server fails.
+  """
+  port_str = os.environ.get("ORBAX_PROMETHEUS_PORT")
+  if port_str:
+    try:
+      port = int(port_str)
+    except ValueError:
+      port = ORBAX_PROMETHEUS_DEFAULT_PORT
+  else:
+    port = ORBAX_PROMETHEUS_DEFAULT_PORT
+
+  all_metrics = scrape_prometheus(port)
+  return [m for m in all_metrics if m.name.startswith(ORBAX_METRIC_PREFIXES)]
 
 
 def get_chip_usage_new(
@@ -289,7 +505,15 @@ def get_chip_usage(
 def get_runtime_hbm_utilization(
     addr: str = "localhost:8431",
 ) -> List[tuple[int, float]]:
-  """Gets HBM bandwidth utilization for all attached TPU devices."""
+  """Gets HBM bandwidth utilization for all attached TPU devices.
+
+  Args:
+    addr: gRPC address of the runtime metrics service.
+
+  Returns:
+    A list of tuples, where each tuple contains the device ID and the HBM
+    bandwidth utilization (as a float).
+  """
   channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
   client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
   resp = client.GetRuntimeMetric(
@@ -306,7 +530,15 @@ def get_runtime_hbm_utilization(
 def get_tensorcore_idle_duration(
     addr: str = "localhost:8431",
 ) -> List[tuple[int, float]]:
-  """Gets TensorCore idle duration for all attached TPU devices."""
+  """Gets TensorCore idle duration for all attached TPU devices.
+
+  Args:
+    addr: gRPC address of the runtime metrics service.
+
+  Returns:
+    A list of tuples, where each tuple contains the device ID and the TensorCore
+    idle duration (as a float).
+  """
   channel = grpc.secure_channel(addr, grpc.local_channel_credentials())
   client = tpu_metrics_grpc.RuntimeMetricServiceStub(channel)
   resp = client.GetRuntimeMetric(
