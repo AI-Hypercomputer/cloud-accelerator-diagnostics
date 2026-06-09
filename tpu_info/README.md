@@ -26,13 +26,13 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.13.0
+## What's New in Version 0.14.0
 
 🚀 **New Features**
 
-* Add support for new HBM and TensorCore metrics:
-  * HBM Bandwidth Utilization: `runtime_hbm_utilization`
-  * TensorCore Idle Duration: `tensorcore_idle_duration`
+* Add support for **Pygrain** metrics from the local Prometheus server
+* Add support for **Orbax** performance and operational metrics from the local
+  Prometheus server
 
 ***
 
@@ -268,20 +268,58 @@ be given along with the `--metric` flag.
 $ tpu-info --list_metrics
 ╭─ Supported Metrics ─────────────────────────────────────────────────────────────────────────────╮
 │         buffer_transfer_latency                                                                 │
+│         checkpoint_write_async_blocking_duration                                                │
+│         checkpoint_write_async_commit_duration                                                  │
+│         checkpoint_write_async_commit_future_count                                              │
+│         checkpoint_write_async_metadata_write_duration                                          │
+│         checkpoint_write_async_ocdbt_merge_duration                                             │
+│         checkpoint_write_async_thread_duration                                                  │
+│         checkpoint_write_async_total_duration                                                   │
+│         checkpoint_write_duration_since_last_checkpoint                                         │
+│         checkpoint_write_get_old_steps_duration                                                 │
+│         checkpoint_write_old_steps_examined_count                                               │
+│         checkpoint_write_preemption_duration_saved                                              │
+│         checkpoint_write_remove_steps_duration                                                  │
+│         checkpoint_write_wait_for_previous_duration                                             │
 │         collective_e2e_latency                                                                  │
 │         core_state                                                                              │
 │         device_to_host_transfer_latency                                                         │
 │         duty_cycle_percent                                                                      │
 │         grpc_tcp_delivery_rate                                                                  │
 │         grpc_tcp_min_rtt                                                                        │
-│         runtime_hbm_utilization                                                                 │
 │         hbm_usage                                                                               │
 │         hlo_exec_timing                                                                         │
 │         hlo_queue_size                                                                          │
 │         host_compute_latency                                                                    │
 │         host_to_device_transfer_latency                                                         │
 │         inbound_buffer_transfer_latency                                                         │
+│         orbax_read_async_blocking_duration                                                      │
+│         orbax_read_async_start_count                                                            │
+│         orbax_read_start_count                                                                  │
+│         orbax_read_storage_type                                                                 │
+│         orbax_read_total_duration                                                               │
+│         orbax_read_worker_io_requested_size                                                     │
+│         orbax_read_worker_io_requested_throughput                                               │
+│         orbax_write_async_directory_creation_duration                                           │
+│         orbax_write_async_start_count                                                           │
+│         orbax_write_blocking_throughput                                                         │
+│         orbax_write_checkpoint_start_sync_duration                                              │
+│         orbax_write_directory_creation_duration                                                 │
+│         orbax_write_preemption_count                                                            │
+│         orbax_write_replicated_array_size                                                       │
+│         orbax_write_sharded_array_size                                                          │
+│         orbax_write_size                                                                        │
+│         orbax_write_start_count                                                                 │
+│         orbax_write_storage_type                                                                │
+│         orbax_write_success_count                                                               │
+│         orbax_write_throughput                                                                  │
+│         pygrain_data_sources_read_size                                                          │
+│         pygrain_dataloader_iterator_get_next_duration                                           │
+│         pygrain_dataset_next_duration                                                           │
+│         pygrain_dataset_prefetch_buffer_ready_count                                             │
+│         pygrain_dataset_source_read_duration                                                    │
 │         queued_programs                                                                         │
+│         runtime_hbm_utilization                                                                 │
 │         sequencer_state                                                                         │
 │         sequencer_state_detailed                                                                │
 │         tensorcore_idle_duration                                                                │
