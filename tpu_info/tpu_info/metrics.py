@@ -706,6 +706,21 @@ def get_hlo_exec_timing(
         distribution = metric.distribution
         bucket = list(distribution.bucket_counts)
         count = distribution.count
+        if count == 0:
+          # Use 1.0 as default fallback for percentiles when there are no data
+          # to prevent ZeroDivisionError and match get_transfer_latency.
+          hlo_exec_timings.append(
+              HloExecutionTiming(
+                  device_id,
+                  distribution.mean,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+              )
+          )
+          break
+
         scale = distribution.bucket_options.exponential_buckets.scale
         growth_factor = (
             distribution.bucket_options.exponential_buckets.growth_factor
@@ -743,6 +758,9 @@ def _get_percentile(
     growth_factor: float,
 ) -> float:
   """Gets a percentile value from a distribution."""
+  if total_count == 0:
+    # Fallback to 1.0 if there are no data to avoid division by zero.
+    return 1.0
   for i in range(len(buckets) - 1, 0, -1):
     total_count -= buckets[i]
     if total_count <= percentile_count:
