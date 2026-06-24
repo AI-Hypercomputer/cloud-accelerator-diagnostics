@@ -26,13 +26,21 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.14.0
+## What's New in Version 0.14.1
 
 🚀 **New Features**
 
 * Add support for **Pygrain** metrics from the local Prometheus server
 * Add support for **Orbax** performance and operational metrics from the local
   Prometheus server
+
+🛠️ **Bug Fixes**
+
+* Fix **ZeroDivisionError** in HLO execution timing metrics calculation when the
+  TPU is idle
+* Fix potential **Rich markup rendering injection** vulnerabilities where
+  malicious telemetry data or error messages could trigger unexpected styles or
+  cause crashes
 
 ***
 
