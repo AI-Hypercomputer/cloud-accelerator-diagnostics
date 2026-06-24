@@ -155,7 +155,7 @@ def print_chip_info():
     except args_helper.MetricParsingError as e:
       console_obj.print(
           panel.Panel(
-              f"[red]{e}[/red]",
+              text.Text(str(e), style="red"),
               title="[b]Metric Parsing Error[/b]",
               border_style="red",
           )

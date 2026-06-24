@@ -545,7 +545,7 @@ def get_tpuz_core_state() -> List[console.RenderableType]:
     else:
       exception_message = f"ERROR fetching TPUz info: {e}"
       exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
+          text.Text(exception_message, style="red"),
           title="[b]TPUz Error[/b]",
           border_style="red",
       )
@@ -603,9 +603,9 @@ def get_tpuz_sequencer_state(
         ]
         if detailed_info:
           data_row += [
-              str(core_state.error_message),
-              str(sequencer.hlo_location),
-              str(sequencer.hlo_detailed_info),
+              text.Text(str(core_state.error_message)),
+              text.Text(str(sequencer.hlo_location)),
+              text.Text(str(sequencer.hlo_detailed_info)),
           ]
         table.add_row(*data_row)
   except grpc.RpcError as e:
@@ -627,7 +627,7 @@ def get_tpuz_sequencer_state(
     else:
       exception_message = f"ERROR fetching TPUz info: {e}"
       exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
+          text.Text(exception_message, style="red"),
           title="[b]TPUz Error[/b]",
           border_style="red",
       )
@@ -681,7 +681,7 @@ def get_tpuz_queued_programs() -> List[console.RenderableType]:
     else:
       exception_message = f"ERROR fetching TPUz info: {e}"
       exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
+          text.Text(exception_message, style="red"),
           title="[b]TPUz Error[/b]",
           border_style="red",
       )
@@ -746,7 +746,7 @@ def get_hlo_queue_size_table(
     else:
       exception_message = f"ERROR fetching HLO queue size: {e}"
       exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
+          text.Text(exception_message, style="red"),
           title="[b]HLO Queue Size Error[/b]",
           border_style="red",
       )
@@ -801,7 +801,7 @@ def get_hlo_exec_timing_table(
     else:
       exception_message = f"ERROR fetching HLO execution timing: {e}"
       exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
+          text.Text(exception_message, style="red"),
           title="[b]HLO Execution Timing Error[/b]",
           border_style="red",
       )
@@ -892,7 +892,7 @@ def get_runtime_hbm_utilization_table(
   except grpc.RpcError as e:
     exception_message = f"ERROR fetching HBM bandwidth utilization: {e}"
     exception_renderable = panel.Panel(
-        f"[red]{exception_message}[/red]",
+        text.Text(exception_message, style="red"),
         title="[b]HBM BW Util Error[/b]",
         border_style="red",
     )
@@ -920,7 +920,7 @@ def get_tensorcore_idle_duration_table(
   except grpc.RpcError as e:
     exception_message = f"ERROR fetching TensorCore idle duration: {e}"
     exception_renderable = panel.Panel(
-        f"[red]{exception_message}[/red]",
+        text.Text(exception_message, style="red"),
         title="[b]TensorCore Idle Duration Error[/b]",
         border_style="red",
     )
@@ -960,7 +960,7 @@ def get_device_usage(
     else:
       exception_message = f"ERROR fetching runtime utilization: {e}"
       exception_renderable = panel.Panel(
-          f"[red]{exception_message}[/red]",
+          text.Text(exception_message, style="red"),
           title="[b]Runtime Utilization Error[/b]",
           border_style="red",
       )
@@ -1231,7 +1231,7 @@ class TransferLatencyTables:
       else:
         exception_message = f"ERROR fetching {metric_display_name}: {e}"
         return panel.Panel(
-            f"[red]{exception_message}[/red]",
+            text.Text(exception_message, style="red"),
             title=f"[b]{metric_display_name} Error[/b]",
             border_style="red",
         )
