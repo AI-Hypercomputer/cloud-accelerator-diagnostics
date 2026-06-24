@@ -228,7 +228,7 @@ def get_py_compat_warning_panel() -> panel.Panel:
       "\n\nFor full functionality, please use a different Python environment."
   )
   return panel.Panel(
-      f"[yellow]{warning_text}[/yellow]",
+      text.Text(warning_text, style="yellow"),
       title="[bold yellow]Compatibility Warning[/bold yellow]",
       border_style="yellow",
   )
@@ -421,7 +421,7 @@ def _fetch_prometheus_metrics_batch(
   except Exception as e:  # pylint: disable=broad-exception-caught
     return [
         panel.Panel(
-            f"Error fetching metrics: {e!r}",
+            text.Text(f"Error fetching metrics: {e!r}"),
             title="[bold red]Error[/bold red]",
             border_style="red",
         )
@@ -1128,7 +1128,10 @@ class TensorCoreUtilizationTable:
         )
     except ImportError as e:
       return panel.Panel(
-          f"[yellow]WARNING: ImportError: {e}. libtpu SDK not available.[/]",
+          text.Text(
+              f"WARNING: ImportError: {e}. libtpu SDK not available.",
+              style="yellow",
+          ),
           title="[b]TensorCore Status[/b]",
           border_style="yellow",
       )
@@ -1388,9 +1391,9 @@ def render_single_prometheus_scalar(
     for col in extra_cols:
       label_key = metrics.COLUMN_TO_LABEL_MAP.get(col)
       if label_key:
-        row.append(labels.get(label_key, "N/A"))
+        row.append(text.Text(labels.get(label_key, "N/A")))
       else:
-        row.append("N/A")
+        row.append(text.Text("N/A"))
     row.append(value_str)
 
     table.add_row(*row)
@@ -1451,9 +1454,9 @@ def render_single_prometheus_histogram(
     for col in extra_cols:
       label_key_name = metrics.COLUMN_TO_LABEL_MAP.get(col)
       if label_key_name:
-        row.append(labels.get(label_key_name, "N/A"))
+        row.append(text.Text(labels.get(label_key_name, "N/A")))
       else:
-        row.append("N/A")
+        row.append(text.Text("N/A"))
     row.extend([p5_str, p50_str, p95_str, p99_str])
 
     table.add_row(*row)
@@ -1581,7 +1584,7 @@ def get_prometheus_metric_table(
   except Exception as e:  # pylint: disable=broad-exception-caught
     return [
         panel.Panel(
-            f"Error fetching metrics: {e!r}",
+            text.Text(f"Error fetching metrics: {e!r}"),
             title="[bold red]Error[/bold red]",
             border_style="red",
         )
