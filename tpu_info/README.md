@@ -26,7 +26,7 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 ***
 
-## What's New in Version 0.14.1
+## What's New in Version 0.14.2
 
 🚀 **New Features**
 
@@ -36,11 +36,12 @@ running with a supported ML framework, such as JAX or PyTorch/XLA. See the
 
 🛠️ **Bug Fixes**
 
-* Fix **ZeroDivisionError** in HLO execution timing metrics calculation when the
-  TPU is idle
-* Fix potential **Rich markup rendering injection** vulnerabilities where
-  malicious telemetry data or error messages could trigger unexpected styles or
-  cause crashes
+* **[0.14.2]** Fix fatal check failure when importing `tpu_info` directly
+* **[0.14.1]** Fix **ZeroDivisionError** in HLO execution timing metrics
+  calculation when the TPU is idle
+* **[0.14.1]** Fix potential **Rich markup rendering injection**
+  vulnerabilities where malicious telemetry data or error messages could
+  trigger unexpected styles or cause crashes
 
 ***
 
