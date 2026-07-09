@@ -326,7 +326,7 @@ def fetch_process_table(
 
   for chip in chip_paths:
     owner = chip_owners.get(chip)
-    process_name = get_process_name(owner)
+    process_name = get_process_name(owner)  # pyrefly: ignore[bad-argument-type]
     table.add_row(
         chip,
         str(owner),
