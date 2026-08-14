@@ -15,6 +15,7 @@
 """Helper functions for the CLI."""
 
 import collections
+from collections.abc import Sequence
 import importlib.metadata
 import multiprocessing
 import os
@@ -22,7 +23,7 @@ import re
 import signal
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any
 
 from tpu_info import device
 from tpu_info import metrics
@@ -299,7 +300,7 @@ def get_tpu_cli_info() -> console.RenderableType:
   return align.Align.left(tpu_cli_info)
 
 
-def get_process_name(pid: int) -> Optional[str]:
+def get_process_name(pid: int) -> str | None:
   """Returns the process name for a given PID."""
   try:
     with open(f"/proc/{pid}/comm", "r") as f:
@@ -336,12 +337,12 @@ def fetch_process_table(
 
 
 def fetch_metric_tables(
-    validated_metrics: List[Tuple[str, Optional[Dict[str, Any]]]],
+    validated_metrics: list[tuple[str, dict[str, Any] | None]],
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a list of metric tables."""
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
 
   orbax_metrics = []
   pygrain_metrics = []
@@ -385,12 +386,12 @@ def fetch_metric_tables(
 
 
 def _fetch_prometheus_metrics_batch(
-    metric_names: List[str],
+    metric_names: list[str],
     telemetry_name: str,
     default_port: int,
     port_env_var: str,
     env_var_name: str,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Scrapes Prometheus once and renders tables for a batch of metrics."""
   port_str = os.environ.get(port_env_var)
   if port_str:
@@ -457,10 +458,10 @@ def _fetch_prometheus_metrics_batch(
 
 
 def get_metric_table(
-    metric: Tuple[str, Optional[Dict[str, Any]]],
+    metric: tuple[str, dict[str, Any] | None],
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the given metric info."""
   metric_name, filters = metric
   if (
@@ -504,7 +505,7 @@ def get_metric_table(
   return metric_functions[metric_name]()
 
 
-def get_tpuz_core_state() -> List[console.RenderableType]:
+def get_tpuz_core_state() -> list[console.RenderableType]:
   """Returns a table with the TPUz core state info."""
   data_columns = [
       "Chip ID",
@@ -516,7 +517,7 @@ def get_tpuz_core_state() -> List[console.RenderableType]:
       title="Core States",
       columns=data_columns,
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   try:
     core_states = metrics.get_tpuz_info(include_hlo_info=False)
     for core_state in core_states:
@@ -557,7 +558,7 @@ def get_tpuz_core_state() -> List[console.RenderableType]:
 
 def get_tpuz_sequencer_state(
     detailed_info: bool = False,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the TPUz sequencer state info."""
   data_columns = [
       "Chip ID",
@@ -581,7 +582,7 @@ def get_tpuz_sequencer_state(
       title=title,
       columns=data_columns,
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   try:
     # Only need to get HLO info if detailed info is requested since it's
     # computationally expensive.
@@ -630,14 +631,14 @@ def get_tpuz_sequencer_state(
           text.Text(exception_message, style="red"),
           title="[b]TPUz Error[/b]",
           border_style="red",
-      )
+          )
     renderables.append(exception_renderable)
 
   renderables.append(table)
   return renderables
 
 
-def get_tpuz_queued_programs() -> List[console.RenderableType]:
+def get_tpuz_queued_programs() -> list[console.RenderableType]:
   """Returns a table with the TPUz queued programs info."""
   data_columns = [
       "Chip ID",
@@ -650,7 +651,7 @@ def get_tpuz_queued_programs() -> List[console.RenderableType]:
       title="TPUz Queued Programs",
       columns=data_columns,
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   try:
     core_states = metrics.get_tpuz_info(include_hlo_info=False)
     for core_state in core_states:
@@ -692,7 +693,7 @@ def get_tpuz_queued_programs() -> List[console.RenderableType]:
 
 
 def render_empty_table_with_columns(
-    title: Optional[str], columns: List[str]
+    title: str | None, columns: list[str]
 ) -> rich_table.Table:
   """Renders an empty table with the given columns and title."""
   min_width = len(title) + 4 if title else None
@@ -710,12 +711,12 @@ def render_empty_table_with_columns(
 def get_hlo_queue_size_table(
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the HLO queue size info."""
   table = render_empty_table_with_columns(
       "HLO Queue Size", ["Device", "Queue Size"]
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
 
   try:
     queue_sizes = metrics.get_hlo_queue_size(chip_type)
@@ -758,12 +759,12 @@ def get_hlo_queue_size_table(
 def get_hlo_exec_timing_table(
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the HLO execution timing info."""
   table = render_empty_table_with_columns(
       "HLO Execution Timing", ["Device", "Mean", "P50", "P90", "P95", "P999"]
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
 
   try:
     timings = metrics.get_hlo_exec_timing(chip_type)
@@ -813,15 +814,15 @@ def get_hlo_exec_timing_table(
 def get_hbm_usage_table(
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the HBM usage info."""
   table = render_empty_table_with_columns(
       "TPU HBM Usage", ["Device", "HBM Usage (GiB)"]
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   device_usage = get_device_usage(chip_type)
 
-  if isinstance(device_usage, List):
+  if isinstance(device_usage, list):
     for chip in device_usage:
       memory_usage = (
           f"{_bytes_to_gib(chip.memory_usage):.2f} GiB /"
@@ -845,16 +846,16 @@ def get_hbm_usage_table(
 def get_duty_cycle_table(
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the duty cycle info."""
   table = render_empty_table_with_columns(
       "TPU Duty Cycle", ["Core ID", "Duty Cycle (%)"]
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   device_usage = get_device_usage(chip_type)
   device_per_chip = chip_type.value.devices_per_chip
 
-  if isinstance(device_usage, List):
+  if isinstance(device_usage, list):
     for chip in device_usage:
       duty_cycle_pct = f"{chip.duty_cycle_pct:.2f}%"
       if device_per_chip == 1 or chip.device_id % 2 == 0:
@@ -879,12 +880,12 @@ def get_duty_cycle_table(
 def get_runtime_hbm_utilization_table(
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the runtime HBM utilization info."""
   table = render_empty_table_with_columns(
       "TPU Runtime HBM Utilization", ["Device", "Utilization (%)"]
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   try:
     bw_utils = metrics.get_runtime_hbm_utilization()
     for device_id, util in bw_utils:
@@ -907,12 +908,12 @@ def get_runtime_hbm_utilization_table(
 def get_tensorcore_idle_duration_table(
     chip_type: device.TpuChip,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns a table with the TensorCore idle duration info."""
   table = render_empty_table_with_columns(
       "TPU TensorCore Idle Duration", ["Device", "Idle Duration (s)"]
   )
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
   try:
     idle_durations = metrics.get_tensorcore_idle_duration()
     for device_id, duration in idle_durations:
@@ -934,7 +935,7 @@ def get_tensorcore_idle_duration_table(
 
 def get_device_usage(
     chip_type: device.TpuChip,
-) -> List[metrics.Usage] | panel.Panel:
+) -> list[metrics.Usage] | panel.Panel:
   """Returns a list of device usage metrics and exception renderable if any."""
   try:
     if chip_type is device.TpuChip.V7X:
@@ -1064,9 +1065,9 @@ class TpuChipsTable:
 class TpuRuntimeUtilizationTable:
   """Renders a table with TPU runtime utilization metrics."""
 
-  def render(self, chip_type: Any, count: int) -> List[console.RenderableType]:
+  def render(self, chip_type: Any, count: int) -> list[console.RenderableType]:
     """Creates a Rich Table or Panel for TPU runtime utilization."""
-    renderables: List[console.RenderableType] = []
+    renderables: list[console.RenderableType] = []
 
     table = render_empty_table_with_columns(
         "TPU Runtime Utilization", ["Chip", "HBM Usage (GiB)", "Duty cycle"]
@@ -1189,7 +1190,7 @@ class TransferLatencyTables:
   }
 
   def render(
-      self, metric_arg: str, filters: Optional[Dict[str, Any]] = None
+      self, metric_arg: str, filters: dict[str, Any] | None = None
   ) -> console.RenderableType:
     """Creates a Rich Table or Panel for buffer transfer latency."""
 
@@ -1254,7 +1255,7 @@ class TransferLatencyTables:
 
 
 def calculate_percentile(
-    buckets: Sequence[Tuple[float, float]], percentile: float
+    buckets: Sequence[tuple[float, float]], percentile: float
 ) -> float:
   """Calculates percentile from cumulative histogram buckets.
 
@@ -1360,7 +1361,7 @@ def format_metric_title(name: str) -> str:
 
 
 def render_single_prometheus_scalar(
-    family: metrics.Metric, title: Optional[str], schema_key: str
+    family: metrics.Metric, title: str | None, schema_key: str
 ) -> rich_table.Table:
   """Renders a single Prometheus scalar metric (no Metric column).
 
@@ -1402,7 +1403,7 @@ def render_single_prometheus_scalar(
 
 
 def render_single_prometheus_histogram(
-    family: metrics.Metric, title: Optional[str], schema_key: str
+    family: metrics.Metric, title: str | None, schema_key: str
 ) -> rich_table.Table:
   """Renders a single Prometheus histogram metric (no Metric column).
 
@@ -1470,7 +1471,7 @@ def get_prometheus_metric_table_from_families(
     telemetry_name: str,
     *,
     skip_if_missing: bool = True,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Renders a single metric table from a pre-scraped list of families.
 
   Args:
@@ -1533,7 +1534,7 @@ def get_prometheus_metric_table_from_families(
 
 def get_prometheus_metric_table(
     metric_name: str,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Returns tables with a single Prometheus metric.
 
   Args:

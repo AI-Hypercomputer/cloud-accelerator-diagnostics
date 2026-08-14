@@ -23,7 +23,7 @@ import pathlib
 import re
 import sys
 import typing
-from typing import Dict, Literal, Optional, Tuple, TypeVar
+from typing import Literal, TypeVar
 
 GOOGLE_PCI_VENDOR_ID = "0x1ae0"
 
@@ -64,7 +64,7 @@ class TpuChip(enum.Enum):
   @classmethod
   def from_pci_device_id(
       cls, device_id: str, subsystem_id: str
-  ) -> Optional["TpuChip"]:
+  ) -> "TpuChip | None":
     """Returns TPU chip type for given PCI IDs, or None if not a TPU device."""
     # TPU v2 and v3 share a device ID
     if device_id == "0x0027":
@@ -188,7 +188,7 @@ def get_chips() -> list[ChipInfo]:
   return chips
 
 
-def get_local_chips() -> Tuple[Optional[TpuChip], int]:
+def get_local_chips() -> tuple[TpuChip | None, int]:
   """Returns the type and number of TPU chips available."""
   count = collections.Counter()
   for pci_path in glob.glob("/sys/bus/pci/devices/*"):
@@ -218,7 +218,7 @@ def chip_path(chip_type: TpuChip, index: int):
     return f"/dev/accel{index}"
 
 
-def get_chip_owners() -> Dict[str, int]:
+def get_chip_owners() -> dict[str, int]:
   """Returns a mapping of device paths to PIDs of processes using that device."""
   device_owners = {}
 

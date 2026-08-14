@@ -16,7 +16,6 @@
 
 import argparse
 import dataclasses
-from typing import Optional
 
 
 @dataclasses.dataclass
@@ -31,7 +30,7 @@ class MetricRequest:
   """
 
   name: str
-  filter_str: Optional[str] = None
+  filter_str: str | None = None
 
 
 class _MetricAndFilterAction(argparse.Action):

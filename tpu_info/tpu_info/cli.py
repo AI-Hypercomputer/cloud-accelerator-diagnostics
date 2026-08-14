@@ -20,7 +20,7 @@ Top-level functions should be added to `project.scripts` in `pyproject.toml`.
 import datetime
 import sys
 import time
-from typing import Any, List
+from typing import Any
 
 from tpu_info import args
 from tpu_info import args_helper
@@ -43,9 +43,9 @@ def _fetch_and_render_tables(
     *,
     chip_type: Any,
     count: int,
-) -> List[console.RenderableType]:
+) -> list[console.RenderableType]:
   """Fetches all TPU data and prepares a list of Rich Table objects for display."""
-  renderables: List[console.RenderableType] = []
+  renderables: list[console.RenderableType] = []
 
   renderables.append(cli_helper.get_tpu_cli_info())
 

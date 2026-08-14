@@ -18,7 +18,7 @@ import enum
 import itertools
 import os
 import typing
-from typing import Any, Dict, List, Optional
+from typing import Any
 import urllib.error
 import urllib.request
 
@@ -53,8 +53,8 @@ class SequencerState:
   tracemark: int
   program_id: int
   run_id: int
-  hlo_location: Optional[str] = None
-  hlo_detailed_info: Optional[str] = None
+  hlo_location: str | None = None
+  hlo_detailed_info: str | None = None
 
 
 @dataclasses.dataclass
@@ -66,10 +66,10 @@ class CoreState:
   core_on_chip_index: int
   core_type: str
   xdb_server: bool
-  sequencer_states: List[SequencerState]
+  sequencer_states: list[SequencerState]
   program_fingerprint: str
-  error_message: Optional[str] = None
-  queued_programs: List[QueuedProgram] = dataclasses.field(default_factory=list)
+  error_message: str | None = None
+  queued_programs: list[QueuedProgram] = dataclasses.field(default_factory=list)
 
 
 class MetricName(enum.Enum):
@@ -174,7 +174,7 @@ class PrometheusConnectionError(Exception):
   pass
 
 
-def scrape_prometheus(port: int) -> List[Metric]:
+def scrape_prometheus(port: int) -> list[Metric]:
   """Scrapes Prometheus metrics from localhost on the given port.
 
   Args:
@@ -403,7 +403,7 @@ ORBAX_METRIC_PREFIXES = (
 )
 
 
-def get_orbax_metrics() -> List[Metric]:
+def get_orbax_metrics() -> list[Metric]:
   """Fetches Orbax metrics from local Prometheus server.
 
   Returns:
@@ -428,7 +428,7 @@ def get_orbax_metrics() -> List[Metric]:
 PYGRAIN_METRIC_PREFIXES = ("grain_python_",)
 
 
-def get_pygrain_metrics() -> List[Metric]:
+def get_pygrain_metrics() -> list[Metric]:
   """Fetches Pygrain metrics from local Prometheus server.
 
   Returns:
@@ -452,7 +452,7 @@ def get_pygrain_metrics() -> List[Metric]:
 
 def get_chip_usage_new(
     chip_type: device.TpuChip, addr: str = "localhost:8431"
-) -> List[Usage]:
+) -> list[Usage]:
   """Gets usage statistics for all attached TPU devices.
 
   Args:
@@ -467,7 +467,7 @@ def get_chip_usage_new(
 
   def sorted_metric_response(
       metric_name: MetricName,
-  ) -> List[tpu_metrics.Metric]:
+  ) -> list[tpu_metrics.Metric]:
     # Manually annotate type until GRPC supports annotations
     # See https://github.com/grpc/grpc/issues/29041
     resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
@@ -500,7 +500,7 @@ def get_chip_usage_new(
 
 def get_chip_usage(
     chip_type: device.TpuChip, addr: str = "localhost:8431"
-) -> List[Usage]:
+) -> list[Usage]:
   """Gets usage statistics for all attached TPU devices.
 
   Args:
@@ -515,7 +515,7 @@ def get_chip_usage(
 
   def sorted_metric_response(
       metric_name: MetricName,
-  ) -> List[tpu_metrics.Metric]:
+  ) -> list[tpu_metrics.Metric]:
     # Manually annotate type until GRPC supports annotations
     # See https://github.com/grpc/grpc/issues/29041
     resp: tpu_metrics.MetricResponse = client.GetRuntimeMetric(
@@ -553,7 +553,7 @@ def get_chip_usage(
 
 def get_runtime_hbm_utilization(
     addr: str = "localhost:8431",
-) -> List[tuple[int, float]]:
+) -> list[tuple[int, float]]:
   """Gets HBM bandwidth utilization for all attached TPU devices.
 
   Args:
@@ -578,7 +578,7 @@ def get_runtime_hbm_utilization(
 
 def get_tensorcore_idle_duration(
     addr: str = "localhost:8431",
-) -> List[tuple[int, float]]:
+) -> list[tuple[int, float]]:
   """Gets TensorCore idle duration for all attached TPU devices.
 
   Args:
@@ -606,7 +606,7 @@ def get_tensorcore_idle_duration(
 def get_hlo_queue_size(
     chip_type: device.TpuChip,
     addr: str = "localhost:8431",
-) -> List[HloQueueSize]:
+) -> list[HloQueueSize]:
   """Gets HLO queue size statistics for all attached TPU devices.
 
   Args:
@@ -661,7 +661,7 @@ def get_hlo_queue_size(
 def get_hlo_exec_timing(
     chip_type: device.TpuChip,
     addr: str = "localhost:8431",
-) -> List[HloExecutionTiming]:
+) -> list[HloExecutionTiming]:
   """Gets HLO execution timing statistics for all attached TPU devices.
 
   Args:
@@ -753,7 +753,7 @@ def get_hlo_exec_timing(
 def _get_percentile(
     percentile_count: int,
     total_count: int,
-    buckets: List[int],
+    buckets: list[int],
     scale: float,
     growth_factor: float,
 ) -> float:
@@ -773,8 +773,8 @@ def _get_percentile(
 def get_transfer_latency(
     metric_arg: str,
     addr: str = "localhost:8431",
-    filters: Optional[Dict[str, Any]] = None,
-) -> List[TransferLatencyDistribution]:
+    filters: dict[str, Any] | None = None,
+) -> list[TransferLatencyDistribution]:
   """Gets latency statistics for all attached TPU devices based on the metric name.
 
   Args:
@@ -888,7 +888,7 @@ def get_transfer_latency(
 def get_tpuz_info(
     addr: str = "localhost:8431",
     include_hlo_info: bool = False,
-) -> List[CoreState]:
+) -> list[CoreState]:
   """Gets TPUz info from libtpu and parses it into CoreState objects.
 
   Args:
@@ -968,3 +968,4 @@ def get_tpuz_info(
     core_states.append(core_state)
 
   return core_states
+

@@ -15,7 +15,7 @@
 """Helper functions for args.py."""
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from tpu_info import args
 from tpu_info import metrics
 
@@ -27,7 +27,7 @@ class MetricParsingError(Exception):
     super().__init__(message)
 
 
-def _parse_filter_str(filter_str: str) -> Dict[str, Any]:
+def _parse_filter_str(filter_str: str) -> dict[str, Any]:
   """Parses a raw filter string (e.g., 'key:value, list_key:[v1,v2]') into a dictionary.
 
   This function handles simple key-value pairs and list values enclosed in
@@ -67,8 +67,8 @@ class MetricsParser:
   @classmethod
   def parse_metric_args(
       cls,
-      metric_args: List[args.MetricRequest],
-  ) -> List[Tuple[str, Optional[Dict[str, Any]]]]:
+      metric_args: list[args.MetricRequest],
+  ) -> list[tuple[str, dict[str, Any] | None]]:
     """Parses and validates metric arguments."""
     parsed_metrics = []
     for metric in metric_args:
