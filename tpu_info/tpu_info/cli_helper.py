@@ -66,8 +66,8 @@ def _check_library_safety():
   try:
     # We only need to import it to see if it crashes.
     # pylint: disable=g-import-not-at-top,unused-import,redefined-outer-name
-    import libtpu  # pytype: disable=import-error
-    from libtpu import sdk  # pytype: disable=import-error
+    import libtpu  # pyrefly: ignore[missing-import]
+    from libtpu import sdk  # pyrefly: ignore[missing-import]
   except ImportError:
     # Handles the case where the library isn't installed.
     # Exit with a special code so the parent knows what happened.
@@ -120,8 +120,8 @@ def _initialize_libtpu_safely() -> str:
     try:
       # These imports now populate the global variables.
       # pylint: disable=g-import-not-at-top
-      import libtpu as libtpu_temp  # pytype: disable=import-error
-      from libtpu import sdk as libtpu_sdk_temp  # pytype: disable=import-error
+      import libtpu as libtpu_temp  # pyrefly: ignore[missing-import]
+      from libtpu import sdk as libtpu_sdk_temp  # pyrefly: ignore[missing-import]
       libtpu = libtpu_temp
       libtpu_sdk = libtpu_sdk_temp
       ok_message = "OK"
@@ -198,7 +198,7 @@ def is_incompatible_python_version() -> bool:
   """
   # If libtpu is not imported, automatically incompatible
   libtpu_version = _get_libtpusdk_version()
-  if libtpu_version is None:  # pytype: disable=name-error
+  if libtpu_version is None:
     return True
   else:
     try:
@@ -425,7 +425,7 @@ def get_tpuz_core_state() -> list[console.RenderableType]:
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pyrefly: ignore[missing-attribute]
       exception_message = (
           "TPUz info unavailable. Is there a framework using the"
           " TPU? See"
@@ -507,7 +507,7 @@ def get_tpuz_sequencer_state(
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pyrefly: ignore[missing-attribute]
       exception_message = (
           "TPUz info unavailable. Is there a framework using the"
           " TPU? See"
@@ -561,7 +561,7 @@ def get_tpuz_queued_programs() -> list[console.RenderableType]:
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pyrefly: ignore[missing-attribute]
       exception_message = (
           "TPUz info unavailable. Is there a framework using the"
           " TPU? See"
@@ -626,7 +626,7 @@ def get_hlo_queue_size_table(
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pyrefly: ignore[missing-attribute]
       exception_message = (
           "HLO queue size metrics unavailable. Is there a framework using the"
           " TPU? See"
@@ -681,7 +681,7 @@ def get_hlo_exec_timing_table(
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pyrefly: ignore[missing-attribute]
       exception_message = (
           "HLO execution timing metrics unavailable. Is there a framework using"
           " the TPU? See"
@@ -840,7 +840,7 @@ def get_device_usage(
   except grpc.RpcError as e:
     exception_message: str
     exception_renderable: panel.Panel
-    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pytype: disable=attribute-error
+    if e.code() == grpc.StatusCode.UNAVAILABLE:  # pyrefly: ignore[missing-attribute]
       exception_message = (
           "Libtpu metrics unavailable. Is there a framework using the"
           " TPU? See"
@@ -1115,7 +1115,7 @@ class TransferLatencyTables:
       transfer_latency_distributions = metrics.get_transfer_latency(metric_arg)
     except grpc.RpcError as e:
       exception_message: str
-      if e.code() == grpc.StatusCode.UNAVAILABLE or e.code() == grpc.StatusCode.NOT_FOUND:  # pytype: disable=attribute-error
+      if e.code() == grpc.StatusCode.UNAVAILABLE or e.code() == grpc.StatusCode.NOT_FOUND:  # pyrefly: ignore[missing-attribute]
         exception_message = (
             f"{metric_display_name} metrics unavailable. Did you start"
             " a MULTI_SLICE workload with"

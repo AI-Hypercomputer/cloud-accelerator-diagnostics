@@ -357,14 +357,12 @@ METRIC_COLUMNS = immutabledict({
 
 def __getattr__(name: str):
   if name == "VALID_METRICS":
-    # pytype: disable=import-error
     # pylint: disable=g-import-not-at-top
-    from tpu_info import registry
+    from tpu_info import registry  # pyrefly: ignore[missing-module-attribute]
     return registry.MetricRegistry().get_all_metric_names()
   if name == "METRIC_FILTER_SCHEMA":
-    # pytype: disable=import-error
     # pylint: disable=g-import-not-at-top
-    from tpu_info import registry
+    from tpu_info import registry  # pyrefly: ignore[missing-module-attribute]
     return registry.MetricRegistry().get_all_filter_schemas()
   raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
