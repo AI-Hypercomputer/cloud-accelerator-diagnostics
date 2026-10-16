@@ -1,0 +1,151 @@
+name: Publish tpu-info to PyPI
+
+on:
+  push:
+    tags:
+      - "tpu-info-v*"
+  # Manual runs only publish to TestPyPI (dry run); production PyPI requires a tag.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with [build-system] requires in tpu_info/pyproject.toml.
+  GRPCIO_TOOLS_SPEC: "grpcio-tools>=1.65.5,<1.72.0"
+  # Runtime versions shipped on Cloud TPU JAX images.
+  CLOUD_TPU_RUNTIME_SPEC: "grpcio==1.75.0 protobuf==6.32.1"
+
+jobs:
+  test-and-build:
+    name: Run Release Gate Tests & Build Artifacts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tpu_info
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Verify Git tag matches pyproject.toml version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          RAW_TAG="${GITHUB_REF#refs/tags/}"
+          # Strip 'tpu-info-v' prefix
+          TAG_VERSION="${RAW_TAG#tpu-info-v}"
+          PKG_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "Tag version: $TAG_VERSION, Package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Git tag version ($TAG_VERSION) does not match tpu_info/pyproject.toml version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Install build and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine pytest "${GRPCIO_TOOLS_SPEC}"
+          python -m pip install -e ".[test]"
+
+      - name: Compile protobuf definitions
+        run: |
+          python -m grpc_tools.protoc --experimental_editions -I. tpu_info/proto/tpu_metric_service.proto --python_out=. --pyi_out=. --grpc_python_out=.
+          python -m grpc_tools.protoc --experimental_editions -I. tpu_info/proto/tpu_telemetry.proto --python_out=. --pyi_out=.
+
+      # Release gate: never publish without running the unit tests.
+      - name: Run unit tests (absltest and pytest runners)
+        run: |
+          shopt -s nullglob
+          tests=(tpu_info/*_test.py)
+          if [ ${#tests[@]} -eq 0 ]; then
+            echo "::error::No tpu_info/*_test.py files found; refusing to release without unit tests."
+            exit 1
+          fi
+          for test_file in "${tests[@]}"; do
+            echo "=== Running ${test_file} ==="
+            python "${test_file}"
+          done
+          pytest -v "${tests[@]}"
+
+      - name: Build distribution packages (wheel & sdist)
+        run: |
+          rm -rf dist/
+          python -m build
+          twine check dist/*
+
+      - name: Smoke test built wheel
+        run: |
+          python -m pip uninstall -y tpu-info
+          rm -f tpu_info/proto/*_pb2*.py tpu_info/proto/*_pb2*.pyi
+          python -m pip install dist/*.whl
+          cd /tmp
+          tpu-info --version
+          tpu-info query --list-metrics
+
+      - name: Check wheel against Cloud TPU runtime versions
+        run: |
+          python -m venv /tmp/cloud-tpu-runtime
+          /tmp/cloud-tpu-runtime/bin/python -m pip install --upgrade pip
+          # shellcheck disable=SC2086
+          /tmp/cloud-tpu-runtime/bin/python -m pip install dist/*.whl ${CLOUD_TPU_RUNTIME_SPEC}
+          cd /tmp
+          /tmp/cloud-tpu-runtime/bin/python -c "from tpu_info.proto import tpu_metric_service_pb2, tpu_metric_service_pb2_grpc, tpu_telemetry_pb2"
+          /tmp/cloud-tpu-runtime/bin/tpu-info --version
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tpu-info-dist
+          path: tpu_info/dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/tpu-info
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tpu-info-dist
+          path: dist/
+
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to Production PyPI
+    needs: [test-and-build, publish-testpypi]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tpu-info
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tpu-info-dist
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
