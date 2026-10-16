@@ -1,0 +1,144 @@
+name: Publish tpu-info to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+      - "tpu-info-v*"
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        description: "Target PyPI repository for manual dispatch"
+        required: true
+        default: "testpypi"
+        type: choice
+        options:
+          - testpypi
+          - pypi
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    name: Run Release Gate Tests & Build Artifacts
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tpu_info
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: tpu_info/pyproject.toml
+
+      - name: Verify Git tag matches pyproject.toml version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          RAW_TAG="${GITHUB_REF#refs/tags/}"
+          # Strip either 'tpu-info-v' or 'v' prefix
+          TAG_VERSION="${RAW_TAG#tpu-info-}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          PKG_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "Tag version: $TAG_VERSION, Package version: $PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Git tag version ($TAG_VERSION) does not match tpu_info/pyproject.toml version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Install build and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine "grpcio-tools>=1.65.5"
+          python -m pip install -e ".[test]"
+
+      - name: Compile protobuf definitions and run unit tests
+        run: |
+          python -m grpc_tools.protoc --experimental_editions -I. tpu_info/proto/tpu_metric_service.proto --python_out=. --pyi_out=. --grpc_python_out=.
+          python -m grpc_tools.protoc --experimental_editions -I. tpu_info/proto/tpu_telemetry.proto --python_out=. --pyi_out=.
+          if ls tpu_info/*_test.py >/dev/null 2>&1; then
+            for test_file in tpu_info/*_test.py; do
+              echo "=== Running ${test_file} ==="
+              python "${test_file}"
+            done
+          fi
+
+      - name: Build distribution packages (wheel & sdist)
+        run: |
+          rm -rf dist/
+          python -m build
+          twine check dist/*
+
+      - name: Smoke test built wheel in clean environment
+        run: |
+          python -m pip uninstall -y tpu-info
+          rm -f tpu_info/proto/*_pb2*.py tpu_info/proto/*_pb2*.pyi
+          python -m pip install dist/*.whl
+          cd /tmp
+          tpu-info --version
+          tpu-info query --list-metrics
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tpu-info-dist
+          path: tpu_info/dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: test-and-build
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.target_repository == 'testpypi') ||
+      startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/tpu-info
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tpu-info-dist
+          path: dist/
+
+      - name: Publish distribution to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to Production PyPI
+    needs: [test-and-build, publish-testpypi]
+    if: >-
+      startsWith(github.ref, 'refs/tags/') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target_repository == 'pypi')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tpu-info
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: tpu-info-dist
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
