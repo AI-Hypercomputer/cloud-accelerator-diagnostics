@@ -13,16 +13,22 @@
 # limitations under the License.
 
 [build-system]
-requires = ["hatchling", "hatch-build-scripts", "grpcio-tools>=1.65.5"]
+# Keep grpcio-tools on protobuf 5.x gencode: 1.72.0 moved to protobuf 6.x, and
+# generated *_pb2*.py refuse to import on a protobuf runtime older than the
+# gencode they were built with (e.g. Cloud TPU images on protobuf 6.x).
+requires = ["hatchling", "hatch-build-scripts", "grpcio-tools>=1.65.5,<1.72.0"]
 build-backend = "hatchling.build"
 
 [project]
 version = "0.14.2"
 name = "tpu-info"
 dependencies = [
-  # `grpcio` should match `grpcio-tools` build dependency
-  "grpcio>=1.65.5",
-  "protobuf",
+  # Floors set by the protos generated at build time: the `grpcio-tools` pin
+  # above stamps `grpcio>=1.71.2` into *_pb2_grpc.py and protobuf 5.29.0
+  # gencode into *_pb2.py, and both refuse to import on an older runtime.
+  # Move these together with that pin.
+  "grpcio>=1.71.2",
+  "protobuf>=5.29.0",
   "rich",
   "packaging",
   "prometheus-client>=0.20.0",
