@@ -4,7 +4,8 @@ on:
   push:
     tags:
       - "tpu-info-v*"
-  # Manual runs only publish to TestPyPI (dry run); production PyPI requires a tag.
+  # Manual runs are dry runs: they test and build, and upload the wheel/sdist as
+  # workflow artifacts. Publishing to production PyPI requires a tpu-info-v* tag.
   workflow_dispatch:
 
 permissions:
@@ -106,9 +107,14 @@ jobs:
           path: tpu_info/dist/
           if-no-files-found: error
 
+  # Skipped until a TestPyPI Trusted Publisher can be added for tpu-info (the
+  # TestPyPI project is owned by a former maintainer). To re-enable, add the
+  # Trusted Publisher and set the repository variable ENABLE_TESTPYPI_PUBLISH to
+  # "true". Production releases do not depend on this job.
   publish-testpypi:
     name: Publish to TestPyPI
     needs: test-and-build
+    if: vars.ENABLE_TESTPYPI_PUBLISH == 'true'
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -131,7 +137,7 @@ jobs:
 
   publish-pypi:
     name: Publish to Production PyPI
-    needs: [test-and-build, publish-testpypi]
+    needs: test-and-build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     environment:

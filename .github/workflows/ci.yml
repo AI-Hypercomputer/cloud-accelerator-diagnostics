@@ -6,13 +6,13 @@ on:
       - main
     paths:
       - "tpu_info/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/**"
   pull_request:
     branches:
       - main
     paths:
       - "tpu_info/**"
-      - ".github/workflows/ci.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:
